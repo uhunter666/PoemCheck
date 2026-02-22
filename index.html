@@ -1,0 +1,992 @@
+<!-- 啦导审诗 v1.0 | Designed by unixhunter -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>啦导审诗 v1.0 · 律诗格律检查</title>
+<script defer src="https://cn.vercount.one/js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#fdf6e3;color:#3b2a1a;font-family:"Noto Serif SC","Source Han Serif","SimSun",serif;font-size:16px;min-height:100vh}
+h1{text-align:center;padding:18px 12px 10px;font-size:1.3em;color:#8b4513;letter-spacing:3px;border-bottom:2px solid #c8a068}
+.tabs{display:flex;border-bottom:2px solid #c8a068;background:#f5e6c8}
+.tab-btn{flex:1;padding:10px 4px;border:none;background:none;cursor:pointer;font-size:0.9em;font-family:inherit;color:#8b4513;border-bottom:3px solid transparent;transition:all .2s}
+.tab-btn.active{color:#5c2a00;border-bottom-color:#8b4513;background:#fdf6e3;font-weight:bold}
+.tab-content{display:none;padding:14px 12px}
+.tab-content.active{display:block}
+textarea{width:100%;padding:10px;border:1px solid #c8a068;border-radius:6px;background:#fffef7;font-size:1em;font-family:inherit;resize:vertical;min-height:120px;outline:none;color:#3b2a1a}
+textarea:focus{border-color:#8b4513;box-shadow:0 0 0 2px rgba(139,69,19,.15)}
+.btn{display:inline-block;padding:9px 22px;background:#8b4513;color:#fdf6e3;border:none;border-radius:5px;cursor:pointer;font-size:1em;font-family:inherit;margin-top:10px;transition:background .2s}
+.btn:hover,.btn:active{background:#a0522d}
+.result-box{margin-top:14px;padding:12px;background:#fffef7;border:1px solid #ddd0b0;border-radius:6px}
+.result-title{font-size:0.85em;color:#8b4513;font-weight:bold;margin-bottom:6px;letter-spacing:1px}
+.error-msg{color:#c0392b;padding:8px;background:#fdf0ee;border-radius:4px;border-left:3px solid #c0392b;margin-top:8px}
+
+/* Tone annotation */
+.poem-grid{display:flex;flex-direction:column;gap:4px;margin-top:8px}
+.poem-line{display:flex;gap:3px;align-items:flex-end}
+.char-cell{display:flex;flex-direction:column;align-items:center;min-width:22px}
+.char-hanzi{font-size:1.1em;line-height:1.3}
+.tone-dot{width:7px;height:7px;border-radius:50%;margin-top:2px}
+.tone-ping{background:#2980b9}
+.tone-ze{background:#c0392b}
+.tone-rushe{background:#e67e22}
+.tone-duo{background:#8e44ad}
+.tone-unk{background:#bdc3c7}
+.std-row{display:flex;gap:3px;margin-top:3px}
+.std-char{min-width:22px;text-align:center;font-size:0.7em;color:#999;line-height:1.3}
+
+/* Couplet result tags */
+.couplet-block{margin-top:10px;padding:8px 10px;border-radius:5px;border-left:4px solid #ccc;background:#f9f4eb}
+.tag-zhengjie{border-left-color:#27ae60;background:#eafaf1}
+.tag-aojiu{border-left-color:#e67e22;background:#fef9ec}
+.tag-chulv{border-left-color:#f39c12;background:#fef9ec}
+.tag-danger{border-left-color:#e74c3c;background:#fdedec}
+.tag-label{font-size:0.85em;font-weight:bold;margin-bottom:3px}
+.tag-zhengjie .tag-label{color:#27ae60}
+.tag-aojiu .tag-label{color:#d35400}
+.tag-chulv .tag-label{color:#c0392b}
+.tag-danger .tag-label{color:#c0392b}
+.tag-detail{font-size:0.78em;color:#666;margin-top:2px}
+.couplet-lines{font-size:0.8em;color:#888;margin-top:2px}
+.char-error .char-hanzi{color:#e53e3e;font-weight:bold}
+.char-error .tone-dot{outline:2px solid #e53e3e;border-radius:50%}
+.char-error-inline{color:#e53e3e;font-weight:bold}
+.duoyin-note{font-size:.85em;color:#5c6bc0;padding:4px 8px;border-left:3px solid #7986cb;margin-top:4px}
+
+/* Rhyme result */
+.rhyme-result{margin-top:8px;font-size:0.9em;padding:8px 10px;border-radius:5px}
+.rhyme-ok{background:#eafaf1;border-left:3px solid #27ae60;color:#1a5c2e}
+.rhyme-adj{background:#fef9ec;border-left:3px solid #e67e22;color:#7d4e00}
+.rhyme-bad{background:#fdedec;border-left:3px solid #e74c3c;color:#7b241c}
+
+/* Tone legend */
+.legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;font-size:0.8em}
+.legend-item{display:flex;align-items:center;gap:4px}
+.legend-dot{width:9px;height:9px;border-radius:50%;display:inline-block}
+
+/* Query tab */
+.query-row{display:flex;gap:8px;align-items:center;margin-top:8px}
+.query-row input{flex:1;padding:9px 10px;border:1px solid #c8a068;border-radius:5px;font-size:1em;font-family:inherit;background:#fffef7;color:#3b2a1a;outline:none}
+.query-row input:focus{border-color:#8b4513}
+.yun-card{margin-top:12px;padding:12px;background:#fffef7;border:1px solid #ddd0b0;border-radius:6px}
+.yun-card h3{color:#8b4513;font-size:1em;margin-bottom:8px}
+.yun-chars{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.yun-char-btn{padding:2px 7px;border:1px solid #c8a068;border-radius:3px;cursor:pointer;background:#fdf6e3;font-size:0.95em;font-family:inherit;color:#3b2a1a}
+.yun-char-btn:hover{background:#e8d5b7}
+.badge{display:inline-block;padding:1px 7px;border-radius:10px;font-size:0.78em;font-weight:bold;margin-left:6px}
+.badge-ping{background:#d6eaf8;color:#1a5276}
+.badge-ze{background:#fde8e8;color:#7b241c}
+
+/* Browse tab */
+.cat-section{margin-bottom:10px}
+.cat-title{font-size:0.9em;font-weight:bold;color:#8b4513;padding:7px 10px;background:#f5e6c8;border-radius:5px;cursor:pointer;user-select:none;display:flex;justify-content:space-between}
+.cat-title:hover{background:#ebd4a4}
+.cat-body{padding:6px 0;display:none}
+.cat-body.open{display:block}
+.yun-item{padding:6px 10px;border-bottom:1px solid #f0e4c8}
+.yun-item:last-child{border-bottom:none}
+.yun-name{font-size:0.85em;font-weight:bold;color:#8b4513;cursor:pointer}
+.yun-name:hover{text-decoration:underline}
+.yun-sample{font-size:0.78em;color:#777;margin-top:2px;line-height:1.6;display:none}
+.yun-sample.open{display:block}
+
+/* Pattern info table */
+.info-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+.info-item{font-size:0.82em;padding:3px 10px;background:#f5e6c8;border-radius:10px;color:#6b3a1a}
+
+/* Section dividers */
+.section-sep{height:1px;background:#ddd0b0;margin:12px 0}
+
+@media(max-width:400px){
+  h1{font-size:1.1em;letter-spacing:2px}
+  .char-hanzi{font-size:1em}
+}
+</style>
+</head>
+<body>
+<h1>啦导审诗 <small style="font-size:.55em;letter-spacing:1px;opacity:.7">v1.0</small></h1>
+<div class="tabs">
+  <button class="tab-btn active" onclick="showTab('check')">格律检查</button>
+  <button class="tab-btn" onclick="showTab('query')">韵部查询</button>
+  <button class="tab-btn" onclick="showTab('browse')">韵书浏览</button>
+</div>
+
+<div id="tab-check" class="tab-content active">
+  <textarea id="poem-input" placeholder="支持单句（1行）、单联（2行）、绝句（4行）、律诗（8行）、排律（10+偶数行）&#10;例（律诗）：&#10;国破山河在&#10;城春草木深&#10;感时花溅泪&#10;恨别鸟惊心&#10;烽火连三月&#10;家书抵万金&#10;白头搔更短&#10;浑欲不胜簪"></textarea>
+  <button class="btn" onclick="doCheck()">检查格律</button>
+  <div id="check-result"></div>
+</div>
+
+<div id="tab-query" class="tab-content">
+  <div class="query-row">
+    <input type="text" id="query-input" maxlength="1" placeholder="输入单个汉字" oninput="this.value=this.value.slice(-1)">
+    <button class="btn" onclick="doQuery()">查询</button>
+  </div>
+  <div id="query-result"></div>
+</div>
+
+<div id="tab-browse" class="tab-content">
+  <div id="browse-content"></div>
+</div>
+
+<script>
+// ============================================================
+// 平水韵数据（106韵）
+// ============================================================
+const PINGSHUI_YUN = {
+  "上平一东":{name:"一东",cat:"上平",chars:"东同童僮铜桐峒筒瞳中衷忠盅虫冲终忡崇嵩菘戎绒弓躬宫穹融雄熊穷冯风枫疯丰充隆窿空公功工攻蒙濛朦瞢笼胧栊咙聋珑砻泷蓬篷洪荭红虹鸿丛翁嗡匆葱聪骢通棕烘崆東銅蟲衝終絨宮窮馮風楓瘋豐籠朧櫳嚨聾瓏礱瀧葒紅鴻叢蔥聰驄懞沖矇衕"},
+  "上平二冬":{name:"二冬",cat:"上平",chars:"冬咚彤农侬宗淙锺钟龙茏舂松淞冲容榕蓉溶庸佣慵封胸凶匈汹雍邕痈浓脓重从逢缝峰锋丰蜂烽葑纵踪茸蛩邛筇跫供蚣喁農儂鍾龍蘢傭兇洶癰濃膿從縫鋒縱蹤峯鈡鐘鬆鼕"},
+  "上平三江":{name:"三江",cat:"上平",chars:"江缸窗邦降双泷庞撞豇扛杠腔梆桩幢蛩雙龐槓樁"},
+  "上平四支":{name:"四支",cat:"上平",chars:"支枝肢移簃为垂吹陂碑奇宜仪皮儿离施知驰池规危夷师姿迟龟眉悲之芝时诗棋旗辞词期祠基疑姬丝司葵医帷思滋持随痴维卮麾墀弥慈遗肌脂雌披嬉尸狸炊湄篱兹差疲茨卑亏蕤骑歧岐谁斯澌私窥熙欺疵赀羁彝髭颐资糜饥衰锥姨夔祗涯伊追缁萁箕治尼而推匙陲魑锤缡璃骊羸帔罴蘼脾芪畸牺羲曦欹漪猗崎崖萎筛狮蛳鸱绥虽粢瓷椎饴嫠痍惟唯机耆逵岿丕毗枇貔楣霉辎蚩嗤媸飔埘莳鲥鹚笞漓怡贻禧噫其琪祺麒嶷螭栀鹂累踟琵嵋為儀兒離馳規師遲龜時詩辭詞絲醫隨維彌遺屍籬茲虧騎誰窺貲羈頤資飢錐緇錘縭驪羆犧篩獅螄鴟綏雖飴機巋黴輜颸塒蒔鰣鷀貽梔鸝俬旂棊瀰灕爲癡纍鎚饑鶿"},
+  "上平五微":{name:"五微",cat:"上平",chars:"微薇晖辉徽挥韦围帏违闱霏菲妃飞非扉肥威祈畿机几讥玑稀希衣依归饥矶欷诽绯晞葳巍沂圻颀暉輝揮韋圍幃違闈飛幾譏璣歸磯誹緋頎"},
+  "上平六鱼":{name:"六鱼",cat:"上平",chars:"鱼渔初书舒居裾琚车渠蕖余予誉舆胥狙锄疏蔬梳虚嘘墟徐猪闾庐驴诸储除滁蜍如畬淤妤苴菹沮徂龉茹榈於祛蘧疽蛆醵纾樗躇欤据魚漁書車餘譽輿鋤虛噓豬閭廬驢諸儲齬櫚紓歟據"},
+  "上平七虞":{name:"七虞",cat:"上平",chars:"虞愚娱隅无芜巫于衢癯瞿氍儒襦濡须需朱珠株诛铢蛛殊俞瑜榆愉逾渝窬谀腴区躯驱岖趋扶符凫芙雏敷麸夫肤纡输枢厨俱驹模谟摹蒲逋胡湖瑚乎壶狐弧孤辜姑觚菰徒途涂荼图屠奴吾梧吴租卢鲈炉芦颅垆蚨孥帑苏酥乌污枯粗都茱侏姝禺拘嵎蹰桴俘臾萸吁滹瓠糊醐呼沽酤泸舻轳鸬驽匍葡铺菟诬呜迂盂竽趺毋孺酴鸪骷刳蛄晡蒱葫呱蝴劬殂猢郛孚娛無蕪須誅銖諛區軀驅嶇趨鳧雛麩膚紆輸樞廚駒謨壺塗圖吳盧鱸爐蘆顱壚蘇烏汙躕籲瀘艫轤鸕駑鋪誣嗚鴣囌甦硃衚踰餬鬍鬚鳬"},
+  "上平八齐":{name:"八齐",cat:"上平",chars:"齐黎犁梨妻萋凄堤低题提蹄啼鸡稽兮倪霓西栖犀嘶撕梯鼙赍迷泥溪蹊圭闺携畦嵇跻奚脐醯黧蠡醍鹈奎批砒睽荑篦齑藜猊鲵羝齊悽題雞棲齎閨攜躋臍鵜齏鯢淒賫鷄"},
+  "上平九佳":{name:"九佳",cat:"上平",chars:"佳街鞋牌柴钗差崖涯偕阶皆谐骸排乖怀淮豺侪埋霾斋槐睚崽楷秸揩挨俳娲蜗蛙娃哇釵階諧懷儕齋媧蝸捱"},
+  "上平十灰":{name:"十灰",cat:"上平",chars:"灰恢魁隈回徊槐梅枚玫媒煤雷颓崔催摧堆陪杯醅嵬推诙裴培盔偎煨瑰茴追胚徘坯桅傀儡莓开哀埃台苔抬该才材财裁栽哉来莱灾猜孩徕骀胎唉垓挨皑呆腮頹詼開臺該財來萊災徠駘皚檯獃盃纔薹迴頽颱"},
+  "上平十一真":{name:"十一真",cat:"上平",chars:"真因茵辛新薪晨辰臣人仁神亲申身宾滨槟缤邻鳞麟珍瞋尘陈春津秦频𬞟颦濒银垠筠巾囷民岷泯珉贫莼淳醇纯唇伦轮沦抡匀旬巡驯钧均榛遵循甄宸纶椿鹑嶙辚磷呻伸绅寅姻荀询峋氤恂嫔彬皴娠闽纫湮肫逡菌臻豳親賓濱檳繽鄰鱗塵陳頻蘋顰瀕銀貧蓴純倫輪淪掄勻馴鈞綸鶉轔紳詢嬪閩紉眞脣蒓"},
+  "上平十二文":{name:"十二文",cat:"上平",chars:"文闻纹蚊云分氛纷芬焚坟群裙君军勤斤筋勋薰曛醺芸耘芹欣氲荤汶汾殷雯贲纭昕熏聞紋雲紛墳軍勳氳葷賁紜燻勛羣蕓"},
+  "上平十三元":{name:"十三元",cat:"上平",chars:"元原源沅鼋园袁猿垣烦蕃樊喧萱暄冤言轩藩媛援辕番繁翻幡璠鸳鹓蜿湲爰掀燔圈谖魂浑温孙门尊存敦墩炖暾蹲豚村屯囤盆奔论昏痕根恩吞荪扪裈昆鲲坤仑婚阍髡馄喷狲饨臀跟瘟飧黿園煩軒轅鴛鵷諼渾溫孫門燉論蓀捫褌鯤侖閽餛噴猻飩崑崙飱"},
+  "上平十四寒":{name:"十四寒",cat:"上平",chars:"寒韩翰丹单安鞍难餐檀坛滩弹残干肝竿阑栏澜兰看刊丸完桓纨端湍酸团攒官观鸾銮峦冠欢宽盘蟠漫叹邯郸摊玕拦珊狻鼾杆跚姗殚箪瘅谰獾倌棺剜潘拼槃般蹒瘢磐瞒谩馒鳗钻抟邗汗韓單難壇灘彈殘幹闌欄瀾蘭紈團攢觀鸞鑾巒歡寬盤嘆鄲攤攔姍殫簞癉讕蹣瞞謾饅鰻鑽摶墰壜桿榦歎痠糰罈罎鉆"},
+  "上平十五删":{name:"十五删",cat:"上平",chars:"删潸关弯湾还环鬟寰班斑蛮颜奸攀顽山闲艰间悭患孱潺擐圜菅般颁鬘疝讪斓娴鹇鳏殷纶刪關彎灣還環蠻顏頑閒艱間慳頒訕斕嫻鷳鰥姦嫺閑顔鷴"},
+  "下平一先":{name:"一先",cat:"下平",chars:"先前千阡笺天坚肩贤弦烟燕莲怜连田填巅鬈宣年颠牵妍研眠渊涓捐娟边编悬泉迁仙鲜钱煎然延筵毡旃蝉缠廛联篇偏绵全镌穿川缘鸢旋船涎鞭专圆员乾虔愆权拳椽传焉嫣鞯褰搴铅舷跹鹃筌痊诠悛邅禅婵躔颛燃涟琏便翩骈癫阗钿沿蜒胭芊鳊胼滇佃畋咽湮狷蠲蔫骞膻扇棉拴荃籼砖挛儇欢璇卷扁单溅犍鹯箋堅賢煙蓮憐連巔顛牽淵邊編懸遷鮮錢氈蟬纏聯綿鐫緣鳶專圓員權傳韉鉛躚鵑詮禪嬋顓漣璉駢癲闐鈿鯿騫羶秈磚攣濺鸇嚥捲璿絃菸鎸韆"},
+  "下平二萧":{name:"二萧",cat:"下平",chars:"萧箫挑貂刁凋雕迢条髫调蜩枭浇聊辽寥撩寮僚尧宵消霄绡销超朝潮嚣骄娇蕉焦椒饶硝烧遥徭摇谣瑶韶昭招镳瓢苗猫腰桥乔娆妖飘逍潇鸮骁祧鹪鹩缭獠嘹夭幺邀要姚樵谯憔标飚嫖漂剽佻龆苕岧噍哓跷侥了魈峣描钊轺桡铫鹞翘枵侨窑礁蕭簫條調梟澆遼堯綃銷囂驕嬌饒燒遙搖謠瑤鑣貓橋喬嬈飄瀟鴞驍鷦鷯繚譙標飈齠嘵蹺僥嶢釗軺橈銚鷂翹僑窯彫琱謡鵰"},
+  "下平三肴":{name:"三肴",cat:"下平",chars:"肴巢交郊茅嘲钞包胶苞梢姣庖匏坳敲胞抛蛟崤䴔鞘抄蝥咆哮凹淆教跑艄捎爻咬铙茭炮泡鲛刨抓餚鈔膠拋鵁鐃鮫敎"},
+  "下平四豪":{name:"四豪",cat:"下平",chars:"豪劳毫操髦绦刀萄猱褒桃糟旄袍挠蒿涛皋号陶鳌曹遭羔糕高搔毛艘滔骚韬缫膏牢醪逃濠壕饕洮淘叨啕篙熬遨翱嗷臊嗥尻鏖螯獒敖牦漕嘈槽掏唠涝捞痨芼勞絛撓濤號鰲騷韜繅犛嘮澇撈癆氂縧"},
+  "下平五歌":{name:"五歌",cat:"下平",chars:"歌多罗河戈阿和波科柯陀娥蛾鹅萝荷何过磨螺禾珂蓑婆坡呵哥轲沱鼍拖驼跎佗颇峨俄摩么娑莎迦疴苛蹉嵯驮箩逻锣哪挪锅诃窠蝌髁倭涡窝讹陂鄱皤魔梭唆骡挼靴瘸搓哦瘥酡羅鵝蘿過軻鼉駝頗麼痾馱籮邏鑼鍋訶渦窩訛騾簑麽"},
+  "下平六麻":{name:"六麻",cat:"下平",chars:"麻花霞家茶华沙车牙蛇瓜斜邪芽嘉瑕纱鸦遮叉奢涯巴耶嗟遐加笳赊槎差蟆骅虾葭袈裟砂衙呀琶耙芭杷笆疤爬葩些佘鲨查楂渣爹挝咤拿椰珈跏枷迦痂茄桠丫哑划哗夸胯抓洼呱華紗鴉賒驊蝦鯊撾吒椏啞劃譁誇窪傢嘩査"},
+  "下平七阳":{name:"七阳",cat:"下平",chars:"阳扬杨洋羊徉佯芳妨方坊防肪房亡忘忙茫芒妆庄装奘香乡湘厢箱镶芗相襄骧光昌堂唐糖棠塘章张王常长裳凉粮量梁粱良霜藏肠场尝偿床央鸯秧殃郎廊狼榔踉浪浆将疆僵姜缰觞娘黄皇遑惶徨煌仓苍舱沧伤殇商帮汤创疮强墙樯嫱蔷康慷囊狂糠冈刚钢纲匡筐荒慌行杭航桁翔详祥庠桑彰璋漳獐猖倡凰邙臧赃昂丧阊羌枪锵抢蜣跄篁簧璜潢攘瓤亢吭旁傍孀骦当裆珰铛泱炀蝗隍怏肓汪鞅滂螂怆缃琅颃怅螳陽揚楊妝莊裝鄉廂鑲薌驤張長涼糧腸場嘗償鴦漿將韁觴黃倉蒼艙滄傷殤幫湯創瘡強牆檣嬙薔岡剛鋼綱詳贓喪閶槍鏘搶蹌驦當襠璫鐺煬愴緗頏悵噹嚐墻孃樑殭牀繮薑贜醣"},
+  "下平八庚":{name:"八庚",cat:"下平",chars:"庚更羹盲横觥彭亨英烹平枰京惊荆明盟鸣荣莹兵兄卿生甥笙牲擎鲸迎行衡耕萌甍宏闳茎罂莺樱泓橙争筝清情晴精睛菁晶旌盈楹瀛嬴赢营婴缨贞成盛城诚呈程酲声征正轻名令并倾萦琼峥嵘撑粳坑铿撄鹦黥蘅澎膨棚浜坪苹钲伧檠嘤轰铮狰宁狞瞪绷怦璎砰氓鲭侦柽蛏茔赪茕赓黉瞠橫驚荊鳴榮瑩鯨閎莖罌鶯櫻爭箏贏營嬰纓貞誠聲輕並傾縈瓊崢嶸撐鏗攖鸚鉦傖嚶轟錚猙寧獰繃瓔鯖偵檉蟶塋赬煢賡黌併甯綳"},
+  "下平九青":{name:"九青",cat:"下平",chars:"青经泾形陉亭庭廷霆蜓停丁仃馨星腥醒惺俜灵龄玲铃伶零听冥溟铭瓶屏萍荧萤荣扃埛蜻硎苓聆瓴翎娉婷宁暝瞑螟猩钉疔叮厅町泠棂囹羚蛉咛型邢經涇陘靈齡鈴聽銘熒螢釘廳欞嚀"},
+  "下平十蒸":{name:"十蒸",cat:"下平",chars:"蒸烝承丞惩澄陵凌绫菱冰膺鹰应蝇绳升缯凭乘胜兴仍兢矜征称登灯僧憎增曾矰层能朋鹏肱薨腾藤恒罾崩滕誊崚嶒姮塍冯症簦瞢凝棱楞懲綾鷹應蠅繩繒憑勝興稱燈層鵬騰恆謄稜昇淩癥陞"},
+  "下平十一尤":{name:"十一尤",cat:"下平",chars:"尤邮优忧流旒留骝榴刘由油游猷悠攸牛修羞秋周州洲舟酬雠柔俦畴筹稠丘邱抽瘳遒收鸠搜驺愁休囚求裘仇浮谋牟眸侔矛侯喉猴讴鸥楼陬偷头投钩沟幽纠啾楸蚯踌绸惆勾娄琉疣犹邹兜呦咻貅球蜉蝣辀帱阄瘤硫浏庥湫泅酋瓯啁飕鍪篌抠篝诌骰偻沤蝼髅搂欧彪掊虬揉蹂抔不瓿缪郵優憂騮劉遊讎儔疇籌鳩騶謀謳鷗樓頭鉤溝糾躊綢婁猶鄒輈幬鬮瀏甌颼摳謅僂漚螻髏摟歐虯繆脩蒐週鈎鞦"},
+  "下平十二侵":{name:"十二侵",cat:"下平",chars:"侵寻浔深临林霖针箴斟沈心琴禽擒衾钦吟今襟金音阴岑簪壬任歆森禁祲喑琛涔骎参忱淋妊掺椹郴芩檎琳蟫愔黔嵚尋潯臨針欽陰駸參摻嶔瀋蔘鍼"},
+  "下平十三覃":{name:"十三覃",cat:"下平",chars:"覃潭参骖南楠男谙庵含涵函岚蚕探贪耽眈龛堪谈甘三酣柑惭蓝担簪谭昙坛婪戡颔痰篮褴蚶憨泔聃邯蟫驂諳嵐蠶貪龕談慚藍擔譚曇頷籃襤菴"},
+  "下平十四盐":{name:"十四盐",cat:"下平",chars:"盐檐廉帘嫌严占髯谦奁纤签瞻蟾炎添兼缣沾尖潜阎镰黏淹钳甜恬拈砭詹蒹歼黔钤佥觇崦渐鹣腌襜阉鹽簷簾嚴佔謙奩纖籤縑潛閻鐮鉗殲鈐僉覘漸鶼醃閹簽縴鎌霑"},
+  "下平十五咸":{name:"十五咸",cat:"下平",chars:"咸函缄岩谗衔帆衫杉监凡馋芟搀喃嵌掺巉鹹緘巖讒銜監饞攙"},
+  "上声一董":{name:"一董",cat:"上声",chars:"董懂动孔总笼拢桶捅蓊蠓汞動總攏"},
+  "上声二肿":{name:"二肿",cat:"上声",chars:"肿种踵宠垅拥冗重冢捧勇甬踊涌俑蛹恐拱竦悚耸巩怂奉腫種寵壠擁踴湧聳鞏慫塚"},
+  "上声三讲":{name:"三讲",cat:"上声",chars:"讲港项棒蚌耩講項"},
+  "上声四纸":{name:"四纸",cat:"上声",chars:"纸只咫是靡彼毁委诡髓累技绮觜此泚蕊徙尔弭婢侈弛豕紫旨指视美否痞兕几姊比水轨止徵市喜已纪跪妓蚁鄙晷子仔梓矢雉死履垒癸趾址以似耜祀史驶耳使里理李起杞圯跂士仕俟始齿矣耻麂枳峙鲤迩氏玺巳滓苡倚匕迤逦旖旎舣蚍秕芷拟你企诔捶屣棰揣豸祉恃紙毀詭綺爾視軌紀蟻壘駛裡齒恥鯉邇璽邐艤擬誄燬裏譭隻"},
+  "上声五尾":{name:"五尾",cat:"上声",chars:"尾苇鬼岂卉几伟斐菲匪篚娓悱榧韪炜虺玮虮葦豈偉韙煒瑋蟣"},
+  "上声六语":{name:"六语",cat:"上声",chars:"语圉圄吕侣旅杼伫与予渚煮暑鼠汝茹黍杵处贮女许拒炬距所楚础阻俎沮叙绪序屿墅巨去苣举讵溆浒钜醑咀诅苎抒楮語呂侶佇與處貯許礎敘緒嶼舉詎漵滸鉅詛苧"},
+  "上声七麌":{name:"七麌",cat:"上声",chars:"麌雨宇舞府鼓虎古股贾估土吐圃庾户树煦诩努辅组乳弩补鲁橹睹腐数簿竖普侮斧聚午伍釜缕部柱矩武五苦取抚浦主杜坞祖愈堵扈父甫禹羽怒腑拊俯罟赌卤姥鹉拄莽栩窭脯妩庑否麈褛篓偻酤牡谱怙肚踽虏孥诂瞽牯羖祜沪雇仵缶母某亩蛊琥賈戶樹詡輔組補魯櫓數豎縷撫塢賭滷鵡窶嫵廡褸簍譜虜詁滬僱畝蠱榘癒竪鹵"},
+  "上声八荠":{name:"八荠",cat:"上声",chars:"荠礼体米启陛洗邸底抵弟坻柢涕悌济澧醴诋眯娣棨递昵睨蠡薺禮體啟濟詆遞暱啓"},
+  "上声九蟹":{name:"九蟹",cat:"上声",chars:"蟹解洒楷拐矮摆买骇灑擺買駭枴柺襬"},
+  "上声十贿":{name:"十贿",cat:"上声",chars:"贿悔罪馁每块汇猥璀磊蕾傀儡腿海改采彩在宰醢铠恺待殆怠乃载凯闿倍蓓迨亥賄餒塊匯採鎧愷載凱闓埰寀彙滙綵"},
+  "上声十一轸":{name:"十一轸",cat:"上声",chars:"轸敏允引尹尽忍准隼笋盾闵悯菌蚓牝殒紧蠢陨哂诊疹赈肾蜃膑黾泯窘吮缜軫盡準筍閔憫殞緊隕診賑腎臏黽縝儘"},
+  "上声十二吻":{name:"十二吻",cat:"上声",chars:"吻粉蕴愤隐谨近忿抆刎揾槿瑾恽韫蘊憤隱謹搵惲韞藴"},
+  "上声十三阮":{name:"十三阮",cat:"上声",chars:"阮远晚苑返反饭偃蹇琬沅宛婉畹菀蜿绻巘挽堰混棍阃悃捆衮滚鲧稳本畚笨损忖囤遁很沌恳垦龈遠飯綣閫袞滾鯀穩損懇墾齦綑輓"},
+  "上声十四旱":{name:"十四旱",cat:"上声",chars:"旱暖管琯满短馆缓盥碗懒伞伴卵散诞罕瀚断侃算款但坦袒纂缎拌懑谰莞滿館緩懶傘誕斷緞懣舘"},
+  "上声十五潸":{name:"十五潸",cat:"上声",chars:"潸眼简版板阪盏产限绾柬拣撰馔赧皖汕铲羼楝栈簡盞產綰揀饌鏟棧剷産闆"},
+  "上声十六铣":{name:"十六铣",cat:"上声",chars:"铣善遣浅典转衍犬选冕辇免展茧辨篆勉剪卷显饯践喘藓软蹇演兖件腆跣缅缱鲜殄扁匾蚬岘畎燹隽键变泫癣阐颤膳鳝舛娩辗邅脔辫捻銑淺轉選輦繭顯餞踐蘚軟兗緬繾蜆峴雋鍵變癬闡顫鱔輾臠辮"},
+  "上声十七筱":{name:"十七筱",cat:"上声",chars:"筱小表鸟了晓少扰绕绍杪沼眇矫皎杳窈窕袅挑掉肇缥缈渺淼茑赵兆缴缭夭悄舀侥蓼娆硗剿晁藐秒殍鳥曉擾繞紹矯嫋縹緲蔦趙繳磽裊錶"},
+  "上声十八巧":{name:"十八巧",cat:"上声",chars:"巧饱卯狡爪鲍挠搅绞拗咬炒吵佼姣昴茆獠飽鮑攪絞"},
+  "上声十九皓":{name:"十九皓",cat:"上声",chars:"皓宝藻早枣老好道稻造脑恼岛倒祷捣抱讨考燥扫嫂保鸨稿草昊浩镐杲缟槁堡皂瑙媪燠袄懊葆褓芼澡套涝蚤拷栲寶棗腦惱島禱搗討掃鴇鎬縞媼襖擣皁"},
+  "上声二十哿":{name:"二十哿",cat:"上声",chars:"哿火舸亸舵我拖娜荷可左果裹朵锁琐堕惰妥坐裸跛颇夥颗祸桠婀逻卵那坷爹簸叵垛哆硪么峨嚲鎖瑣墮顆禍"},
+  "上声二十一马":{name:"二十一马",cat:"上声",chars:"马下者野雅瓦寡社写泻夏也把厦惹冶贾假且玛姐舍喏赭洒嘏剐打耍那馬寫瀉廈瑪剮捨"},
+  "上声二十二养":{name:"二十二养",cat:"上声",chars:"养痒象像橡仰朗桨奖蒋敞氅厂枉往颡强惘两曩丈杖仗响掌党想鲞榜爽广享向飨幌莽纺长网荡上壤赏仿罔谠倘魍魉谎蟒漭嗓盎恍脏吭沆慷襁镪抢肮犷養癢槳獎蔣廠顙兩響黨鯗廣饗紡網蕩賞讜魎謊髒鏹骯獷嚮奬曏盪臟鮝"},
+  "上声二十三梗":{name:"二十三梗",cat:"上声",chars:"梗影景井岭领境警请饼永骋逞颖颍顷整静省幸颈郢猛丙炳杏秉耿矿冷靖哽绠荇艋蜢皿儆悻婧阱狰靓惺打瘿并犷眚憬鲠嶺領請餅騁穎潁頃靜頸礦綆靚癭鯁倖"},
+  "上声二十四迥":{name:"二十四迥",cat:"上声",chars:"迥炯茗挺艇梃醒酩酊并等鼎顶肯拯謦刭溟頂剄"},
+  "上声二十五有":{name:"二十五有",cat:"上声",chars:"有酒首口母妇後柳友斗狗久负厚手叟守否右受牖偶走阜九后咎薮吼帚垢舅纽藕朽臼肘韭亩剖诱牡缶酉苟丑糗扣叩某莠寿绶玖授蹂揉溲纣钮扭呕殴纠耦掊瓿拇姆擞绺抖陡蚪篓黝赳取婦鬥負藪紐誘醜壽綬紂鈕嘔毆擻綹釦"},
+  "上声二十六寝":{name:"二十六寝",cat:"上声",chars:"寝饮锦品枕审甚廪衽稔凛懔沈朕荏婶葚禀噤谂怎恁饪覃寢飲錦審廩凜懍嬸稟諗飪"},
+  "上声二十七感":{name:"二十七感",cat:"上声",chars:"感览揽胆澹啖坎惨敢颔撼毯糁湛菡萏罱椠喊嵌橄榄覽攬膽慘糝槧欖"},
+  "上声二十八俭":{name:"二十八俭",cat:"上声",chars:"俭焰敛险检脸染掩点簟贬冉苒陕谄俨闪剡忝琰奄歉芡崭堑渐罨捡弇崦玷儉斂險檢臉點貶陝諂儼閃嶄塹撿"},
+  "上声二十九豏":{name:"二十九豏",cat:"上声",chars:"豏槛范减舰犯湛巉斩黯檻範減艦斬"},
+  "去声一送":{name:"一送",cat:"去声",chars:"送梦凤洞众瓮贡弄冻痛栋恸仲中粽讽空控哄赣夢鳳眾甕貢凍棟慟諷贛糉衆鬨"},
+  "去声二宋":{name:"二宋",cat:"去声",chars:"宋用颂诵统纵讼种综俸供从缝重共頌誦統訟綜"},
+  "去声三绛":{name:"三绛",cat:"去声",chars:"绛降巷撞戆絳戇"},
+  "去声四寘":{name:"四寘",cat:"去声",chars:"寘置事地意志思泪吏赐自字义利器位戏至次累伪寺瑞智记异致备肆翠骑使试类弃饵媚鼻易辔坠醉议翅避笥帜炽粹莳谊帅厕寄睡忌贰萃穗二臂嗣吹遂恣四骥季刺驷寐魅积被懿觊冀愧匮恚馈蒉篑柜暨庇豉莉腻秘比鸷毖啻示嗜饲伺遗薏祟值惴屣眦詈企渍譬跛挚燧隧悴尿稚雉莅悸肄泌识侍踬为淚賜義戲偽記異備試類棄餌轡墜議幟熾誼帥廁貳驥駟積覬匱饋蕢簣櫃膩鷙飼眥漬摯蒞識躓僞厠祕緻誌"},
+  "去声五未":{name:"五未",cat:"去声",chars:"未味气贵费沸尉畏慰蔚魏纬胃汇谓渭卉讳毅既衣蜚溉翡诽氣貴費緯謂諱旣"},
+  "去声六御":{name:"六御",cat:"去声",chars:"御处去虑誉署据驭曙助絮著箸豫恕与遽疏庶预语踞倨蓣淤锯觑狙翥薯慮馭預蕷鋸覷禦"},
+  "去声七遇":{name:"七遇",cat:"去声",chars:"遇路辂赂露鹭树度渡赋布步固素具务雾鹜数怒附兔故顾句墓慕暮募注住驻炷祚裕误悟寤戍库护屦诉妒惧趣娶铸绔傅付谕喻妪芋捕哺互孺寓赴冱吐污恶晤煦酤讣仆赙驸婺锢蛀飓怖铺塑愫蠹溯镀璐雇瓠迕妇负阜副富醋措輅賂鷺賦務霧鶩顧駐誤庫護屨訴懼鑄絝諭嫗惡訃僕賻駙錮颶鍍佈噁泝註遡"},
+  "去声八霁":{name:"八霁",cat:"去声",chars:"霁制计势世丽岁济第艺惠慧币弟滞际涕厉契敝弊毙帝蔽髻锐戾裔袂系祭卫隶闭逝缀翳替细桂税婿例誓筮蕙诣砺励瘗噬继脆睿毳曳蒂睇妻递逮蓟蚋薜荔唳捩粝泥媲嬖彗睨剂嚏谛缔剃屉悌俪锲贳掣羿棣蟪薙娣说赘憩鳜彘呓谜挤霽計勢麗歲藝幣滯際厲斃銳衛隸閉綴細稅詣礪勵瘞繼薊糲劑諦締屜儷鍥貰說贅鱖囈謎擠係嵗繫製説鋭"},
+  "去声九泰":{name:"九泰",cat:"去声",chars:"泰太带盖大濑赖籁蔡害蔼艾丐奈柰汰癞霭会旆最贝沛霈绘脍荟狈侩桧蜕酹外兑帶蓋瀨賴籟藹癩靄會貝繪膾薈狽儈檜蛻兌"},
+  "去声十卦":{name:"十卦",cat:"去声",chars:"卦挂画懈廨邂隘卖派债怪坏诫戒界介芥械薤拜快迈败稗晒瀣湃寨疥届蒯虿篑蒉喟聩块惫掛畫賣債壞誡邁敗曬屆蠆聵憊畵"},
+  "去声十一队":{name:"十一队",cat:"去声",chars:"队内辈佩退碎背秽对废悔诲晦昧配妹喙溃吠肺耒块碓刈悖焙淬敦塞爱代载态菜碍戴贷黛概岱溉慨耐在鼐玳再袋逮埭赉赛忾暧咳嗳睐隊內輩穢對廢誨潰愛態礙貸賚賽愾曖噯睞"},
+  "去声十二震":{name:"十二震",cat:"去声",chars:"震信印进润阵镇刃顺慎鬓晋骏闰峻衅振俊舜赆吝烬讯仞迅汛趁衬仅觐蔺浚赈龀认殡摈缙躏廑谆瞬韧殉馑進潤陣鎮順鬢晉駿閏釁贐燼訊襯僅覲藺齔認殯擯縉躪諄韌饉儁鎭"},
+  "去声十三问":{name:"十三问",cat:"去声",chars:"问闻运晕韵训粪忿酝郡分紊愠近抆拼奋郓捃靳問運暈韻訓糞醞慍奮鄆醖"},
+  "去声十四愿":{name:"十四愿",cat:"去声",chars:"愿怨万饭献健建宪劝蔓券远侃键贩畈曼挽瑗媛圈论恨寸困顿遁钝闷逊嫩溷诨巽褪喷艮揾願萬獻憲勸販頓鈍悶遜諢睏"},
+  "去声十五翰":{name:"十五翰",cat:"去声",chars:"翰瀚岸汉难断乱叹观干散旦算玩烂贯半案按炭汗赞漫冠灌爨窜幔粲灿璨换焕唤涣悍弹惮段看判叛绊鹳伴畔锻腕惋馆旰捍疸但罐盥婉缎缦侃蒜钻谰漢亂爛貫贊竄燦換煥喚渙憚絆鸛鍛縵翫讚"},
+  "去声十六谏":{name:"十六谏",cat:"去声",chars:"谏雁患涧间宦晏慢盼篆栈惯串绽幻瓣苋办谩讪铲绾孪篡裥扮諫澗慣綻莧辦孿襉襇"},
+  "去声十七霰":{name:"十七霰",cat:"去声",chars:"霰殿面县变箭战扇煽膳传见砚院练链燕宴贱馔荐绢彦掾便眷倦羡奠遍恋啭眩钏倩卞汴片禅谴溅饯善转卷甸电咽茜单念眄淀靛佃钿镟漩拣缮现狷炫绚绽线煎选旋颤擅缘撰唁谚媛忭弁援研縣戰見硯練鏈賤薦絹彥羨戀囀釧譴電澱鏇繕現絢線諺唸綫麪麫麵"},
+  "去声十八啸":{name:"十八啸",cat:"去声",chars:"啸笑照庙窍妙诏召邵要曜耀调钓吊叫眺少诮料疗潦掉峤徼跳嘹漂镣廖尿肖鞘悄峭哨俏醮燎鹩鹞轿骠票铫嘯廟竅詔釣誚療嶠鐐轎驃弔"},
+  "去声十九效":{name:"十九效",cat:"去声",chars:"效教貌校孝闹豹罩棹觉较窖爆炮泡刨稍钞拗敲淖鬧覺較"},
+  "去声二十号":{name:"二十号",cat:"去声",chars:"号帽报导操盗噪灶奥告诰到蹈傲暴好劳躁造冒悼倒燥犒靠懊瑁燠耄糙套纛潦耗報導盜奧誥竈譟"},
+  "去声二十一个":{name:"二十一个",cat:"去声",chars:"个贺佐大饿过座和挫课唾播破卧货簸轲驮髁磋作做剁磨懦糯缚锉挼些個賀餓課臥貨縛銼箇"},
+  "去声二十二祃":{name:"二十二祃",cat:"去声",chars:"祃驾夜下谢榭罢夏霸暇灞嫁赦籍假蔗化舍价射骂稼架诈亚麝怕借卸帕坝靶鹧贳炙嗄乍咤诧侘罅吓娅哑讶迓华桦话胯跨衩柘禡駕謝罷價罵詐亞壩鷓詫嚇婭訝樺話垻駡"},
+  "去声二十三漾":{name:"二十三漾",cat:"去声",chars:"漾上望相将状帐唱让浪酿旷壮放向忘仗畅量葬匠障瘴谤尚涨饷样藏舫访贶嶂当抗桁妄怆宕怅创酱况亮傍丧恙谅胀鬯脏吭砀伉圹纩桄挡旺炕亢阆防狀帳讓釀曠壯暢謗漲餉樣訪貺醬況諒脹碭壙纊擋閬"},
+  "去声二十四敬":{name:"二十四敬",cat:"去声",chars:"敬命正令证性政镜盛行圣咏姓庆映病柄劲竞靓净竟孟诤更并聘硬炳泳迸横摒阱檠迎郑獍證鏡聖詠慶勁競淨諍鄭凈証"},
+  "去声二十五径":{name:"二十五径",cat:"去声",chars:"径定听胜罄磬应赠乘佞邓证秤称莹孕兴剩凭迳甑宁胫暝钉订饤锭謦泞瞪蹭蹬亘镫滢凳磴泾徑贈鄧逕脛訂飣錠濘亙鐙瀅"},
+  "去声二十六宥":{name:"二十六宥",cat:"去声",chars:"宥候就售寿秀绣宿奏兽漏富陋狩昼寇茂旧胄宙袖岫柚覆复救厩臭佑右囿豆饾窦瘦漱咒究疚谬皱逅嗅遘溜镂逗透骤又侑幼读堠仆副锈鹫绉咮灸籀酎诟蔻僦构扣购彀戊懋贸袤嗽凑鼬甃沤繡獸晝舊復廄餖竇謬皺鏤驟讀鏽鷲縐詬構購貿湊冑綉複銹"},
+  "去声二十七沁":{name:"二十七沁",cat:"去声",chars:"沁饮禁任荫浸谮谶枕噤甚鸩赁喑渗窨妊蔭譖讖鴆賃滲廕"},
+  "去声二十八勘":{name:"二十八勘",cat:"去声",chars:"勘暗滥啖担憾暂三绀憨澹瞰淡缆濫暫紺纜闇"},
+  "去声二十九艳":{name:"二十九艳",cat:"去声",chars:"艳剑念验堑赡店占敛厌焰垫欠僭酽潋滟俺砭坫豔劍驗贍厭墊釅瀲灩灧艷"},
+  "去声三十陷":{name:"三十陷",cat:"去声",chars:"陷鉴泛梵忏赚蘸嵌站馅鑑懺賺餡氾汎鑒"},
+  "入声一屋":{name:"一屋",cat:"入声",chars:"屋木竹目服福禄谷熟肉族鹿漉腹菊陆轴逐苜蓿宿牧伏夙读犊渎牍椟黩毂复粥肃碌骕鬻育六缩哭幅斛戮仆畜蓄叔淑倏独卜馥沐速祝麓辘镞蹙筑穆睦秃縠覆辐瀑郁舳掬踘蹴跼茯袱鵩鹆髑槲扑匐簌蔟煜蝠菔孰塾矗竺曝鞠嗾谡簏国副祿陸軸犢瀆牘櫝黷轂肅驌縮獨轆鏃築禿輻鬱鵒撲謖國穀蔔"},
+  "入声二沃":{name:"二沃",cat:"入声",chars:"沃俗玉足曲粟烛属录辱狱绿毒局欲束鹄蜀促触续浴酷躅褥旭笃督赎渌纛碡北瞩嘱勖溽缛梏燭屬錄獄綠鵠觸續篤贖淥矚囑縟侷彔慾緑録麯麴"},
+  "入声三觉":{name:"三觉",cat:"入声",chars:"觉角桷榷岳乐捉朔数卓啄琢剥驳雹璞朴壳确浊擢濯渥幄握学龌龊槊搦镯喔邈荦嶽樂剝駁樸殼確濁學齷齪鐲犖殻"},
+  "入声四质":{name:"四质",cat:"入声",chars:"质日笔出室实疾术一乙壹吉秩率律逸佚失漆栗毕恤密蜜桔溢瑟膝匹述黜弼跸七叱卒虱悉戌嫉帅蒺侄踬怵蟋筚篥必泌荜秫栉唧帙溧谧昵轶聿诘耋垤捽茁觱鹬窒苾繘質筆實術慄畢蹕蝨篳蓽櫛謐軼詰鷸卹朮齣"},
+  "入声五物":{name:"五物",cat:"入声",chars:"物佛拂屈郁乞掘吃讫绂弗勿迄不怫绋沸厥倔黻崛尉蔚契屹熨訖紱紼喫彿"},
+  "入声六月":{name:"六月",cat:"入声",chars:"月骨发阙越谒没伐罚卒竭窟笏钺歇突忽袜曰阀筏鹘厥蹶蕨殁橛掘核蝎勃渤悖孛揭碣粤樾鳜脖饽鹁捽猝惚兀讷羯凸咄矻發闕謁沒罰鉞襪閥鶻歿蠍粵餑鵓訥覈髮"},
+  "入声七曷":{name:"七曷",cat:"入声",chars:"曷达末阔钵脱夺褐割沫拔葛闼渴拨豁括抹遏挞跋魃撮泼秣掇聒獭刺喝磕蘖瘌袜活鸹斡怛钹捋達闊缽脫奪闥撥撻潑獺櫱鴰鈸鉢"},
+  "入声八黠":{name:"八黠",cat:"入声",chars:"黠拔八察擦杀刹轧戛瞎刮刷滑辖铩猾捌叭札扎帕茁鹘揠萨捺殺剎軋轄鎩薩紮颳"},
+  "入声九屑":{name:"九屑",cat:"入声",chars:"屑节雪绝列烈结穴说血舌洁别缺裂热决铁灭折拙切悦辙诀泄锲咽轶噎彻澈哲鳖设啮劣玦截窃孽浙孑桔颉拮撷揭褐缬碣挈抉亵薛拽爇冽瞥迭跌阅餮耋垤捏页阕觖谲𫛞撇蹩篾楔惙辍啜缀撤绁杰桀涅霓批節絕結潔別熱決鐵滅悅轍訣洩徹鱉設齧竊頡擷纈褻閱頁闋譎鴃輟紲傑嚙彆絶閲"},
+  "入声十药":{name:"十药",cat:"入声",chars:"药薄恶作乐落阁鹤爵弱约脚雀幕洛壑索郭错跃若酌托削铎凿箔鹊诺萼度橐钥龠瀹着著虐掠获泊搏藿嚼勺廓绰霍镬莫箨缚貉各略骆寞膜鄂博昨柝格拓轹铄烁灼疟箬芍躇却噱矍攫醵踱魄酪络烙珞膊粕簿柞漠摸酢怍涸郝垩谔鳄噩锷颚缴扩椁陌藥閣鶴約腳錯躍託鐸鑿鵲諾鑰獲謔綽鑊籜駱轢鑠爍瘧卻絡堊諤鱷鍔顎擴槨穫葯鈅鰐"},
+  "入声十一陌":{name:"十一陌",cat:"入声",chars:"陌石客白泽伯迹宅席策册碧籍格役帛戟璧驿麦额柏魄积脉夕液尺隙逆画百辟赤易革脊翮屐获适索厄隔益窄核舄掷责坼惜癖僻掖腋释译峄择摘弈奕迫疫昔赫瘠谪亦硕貊跖鹡碛蹐只炙踯斥穸鬲骼舶珀吓磔拆喀蚱舴剧檗擘栅啧帻箦扼划蜴辟帼蝈刺嵴汐藉螫蓦摭襞虢哑绎射拍澤跡冊驛麥額脈闢適擲責釋譯嶧擇謫碩蹠鶺磧躑劇柵嘖幘簀幗蟈驀繹蓆蹟"},
+  "入声十二锡":{name:"十二锡",cat:"入声",chars:"锡壁历枥击绩勣笛敌滴镝檄激寂觌溺觅狄荻幂戚鹢涤的吃沥雳霹惕剔砾翟籴倜析晰淅蜥劈甓嫡轹栎阋菂踢迪皙裼逖蜺阒汨錫歷櫪擊績敵鏑覿覓冪鷁滌瀝靂礫糴櫟鬩闃厤慼曆"},
+  "入声十三职":{name:"十三职",cat:"入声",chars:"职国德食蚀色力翼墨极殛息熄直值得北黑侧贼饰刻则塞式轼域蜮殖植敕亟棘惑忒默织匿慝亿忆臆薏特勒肋幅仄昃稷识逼克即唧弋拭陟恻测翊洫啬穑鲫抑或匐職蝕極側賊飾則軾織億憶惻測嗇穡鯽剋卽"},
+  "入声十四缉":{name:"十四缉",cat:"入声",chars:"缉辑戢立集邑急入泣湿习给十拾袭及级涩楫粒汁蛰执笠隰汲吸絷挹浥悒岌熠葺什芨廿揖煜歙笈圾褶翕緝輯溼習給襲級澀蟄執縶濕"},
+  "入声十五合":{name:"十五合",cat:"入声",chars:"合塔答纳榻閤杂腊匝阖蛤衲沓鸽踏拓拉盍塌咂盒卅搭褡飒磕榼遢蹋蜡溘邋趿納雜臘闔鴿颯蠟"},
+  "入声十六叶":{name:"十六叶",cat:"入声",chars:"叶帖贴牒接猎妾蝶叠箧惬涉鬣捷颊楫聂摄慑镊蹑协侠荚挟铗浃睫厌靥蹀躞燮摺辄婕谍堞霎嗫喋碟鲽捻晔躐笈葉貼獵疊篋愜頰聶攝懾鑷躡協俠莢挾鋏浹靨輒諜囁鰈曄"},
+  "入声十七洽":{name:"十七洽",cat:"入声",chars:"洽狭峡法甲业邺匣压鸭乏怯劫胁插锸押狎夹恰蛱硖掐劄袷眨胛呷歃闸霎狹峽業鄴壓鴨脅鍤夾蛺硤閘"}
+};
+
+// ============================================================
+// 字-韵部映射
+// ============================================================
+const CHAR_TO_YUN = {};
+function buildCharMap() {
+  for (const [yunId, entry] of Object.entries(PINGSHUI_YUN)) {
+    for (const ch of entry.chars) {
+      if (ch.trim() === '') continue;
+      if (!CHAR_TO_YUN[ch]) CHAR_TO_YUN[ch] = [];
+      if (!CHAR_TO_YUN[ch].includes(yunId)) CHAR_TO_YUN[ch].push(yunId);
+    }
+  }
+}
+
+function getCharTone(char) {
+  const yunIds = CHAR_TO_YUN[char] || [];
+  if (!yunIds.length) return { tone:'未知', subtype:'未收录', yunIds:[] };
+  const toneSet = new Set(yunIds.map(id => {
+    const cat = PINGSHUI_YUN[id].cat;
+    return (cat==='上平'||cat==='下平') ? '平' : '仄';
+  }));
+  if (toneSet.size > 1) return { tone:'多音', subtype:'平仄两读', yunIds };
+  const t = [...toneSet][0];
+  const isRushe = yunIds.some(id => PINGSHUI_YUN[id].cat === '入声');
+  return { tone:t, subtype: isRushe?'入声':'普通', yunIds };
+}
+
+function getCharYunInfo(char) {
+  return (CHAR_TO_YUN[char]||[]).map(id => ({
+    yunId:id, name:PINGSHUI_YUN[id].name, cat:PINGSHUI_YUN[id].cat
+  }));
+}
+
+// ============================================================
+// 格律模式
+// ============================================================
+const PATTERNS_WU = {
+  '仄起不入韵':['仄仄平平仄','平平仄仄平','平平平仄仄','仄仄仄平平','仄仄平平仄','平平仄仄平','平平平仄仄','仄仄仄平平'],
+  '仄起入韵':  ['仄仄仄平平','平平仄仄平','平平平仄仄','仄仄仄平平','仄仄平平仄','平平仄仄平','平平平仄仄','仄仄仄平平'],
+  '平起不入韵':['平平平仄仄','仄仄仄平平','仄仄平平仄','平平仄仄平','平平平仄仄','仄仄仄平平','仄仄平平仄','平平仄仄平'],
+  '平起入韵':  ['平平仄仄平','仄仄仄平平','仄仄平平仄','平平仄仄平','平平平仄仄','仄仄仄平平','仄仄平平仄','平平仄仄平'],
+};
+
+function generateQiYan() {
+  const r = {};
+  for (const [k,lines] of Object.entries(PATTERNS_WU)) {
+    r[k] = lines.map(l => (l[0]==='平'?'仄仄':'平平') + l);
+  }
+  return r;
+}
+const PATTERNS_QI = generateQiYan();
+
+// ============================================================
+// 诗稿解析
+// ============================================================
+function stripPunct(str) {
+  return str.replace(/[^\u4e00-\u9fff\u3400-\u4dbf]/g,'');
+}
+
+function isValidPoetry(lines) {
+  const lens=lines.map(l=>[...l].length);
+  const cpl=lens[0];
+  if (!lens.every(n=>n===cpl)) return false;
+  if (cpl!==5&&cpl!==7) return false;
+  const n=lines.length;
+  return n===1||n===2||n===4||n===8||(n>=10&&n%2===0);
+}
+function parsePoem(text) {
+  const s1=text.split(/\r?\n/).map(stripPunct).filter(l=>l.length>0);
+  if (s1.length>0&&isValidPoetry(s1))
+    return {lines:s1,charPerLine:[...s1[0]].length,lineCount:s1.length};
+  const s2=text.split(/[，。,.\s！？；：、…—～·]/).map(stripPunct).filter(l=>l.length>0);
+  if (s2.length>0&&isValidPoetry(s2))
+    return {lines:s2,charPerLine:[...s2[0]].length,lineCount:s2.length};
+  const allChars=[...stripPunct(text)];
+  const total=allChars.length;
+  let matched=null;
+  for (const cpl of [5,7]) {
+    if (total%cpl!==0) continue;
+    const cnt=total/cpl;
+    if (cnt===1||cnt===2||cnt===4||cnt===8||(cnt>=10&&cnt%2===0)) {matched={cpl,cnt};break;}
+  }
+  if (matched) {
+    const {cpl:perLine,cnt:lineCount}=matched;
+    const rebuilt=[];
+    for (let i=0;i<total;i+=perLine) rebuilt.push(allChars.slice(i,i+perLine).join(''));
+    return {lines:rebuilt,charPerLine:perLine,lineCount};
+  }
+  if (total===0) return {error:'输入为空',lines:[]};
+  return {error:`输入共${total}字，需可按5或7整除，且行数为1、2、4、8或10+偶数`,lines:[]};
+}
+
+function detectPoetryType({charPerLine,lineCount}) {
+  if (charPerLine!==5&&charPerLine!==7) return {valid:false,reason:`每行${charPerLine}字，需5言或7言`};
+  const style=charPerLine===5?'五言':'七言';
+  if (lineCount===1) return {valid:true,type:'单句',style,charPerLine,lineCount};
+  if (lineCount===2) return {valid:true,type:'单联',style,charPerLine,lineCount};
+  if (lineCount===4) return {valid:true,type:'绝句',style,charPerLine,lineCount};
+  if (lineCount===8) return {valid:true,type:'律诗',style,charPerLine,lineCount};
+  if (lineCount>=10&&lineCount%2===0) return {valid:true,type:'排律',style,charPerLine,lineCount};
+  return {valid:false,reason:`共${lineCount}行，格律诗需1、2、4、8或10+偶数行`};
+}
+
+// ============================================================
+// 拗救算法
+// ============================================================
+function isSanping(s) { return s.endsWith('平平平'); }
+
+function isGuping(s,std) {
+  if (!std.endsWith('平')) return false;
+  const n=s.length;
+  if (n===5) return s[0]==='仄'&&s[1]==='平'&&s[2]==='仄'&&s[3]==='仄'&&s[4]==='平';
+  if (n===7) return s[0]==='仄'&&s[1]==='仄'&&s[2]==='仄'&&s[3]==='平'&&s[4]==='仄'&&s[5]==='仄'&&s[6]==='平';
+  return false;
+}
+
+function getCoupletType(s1,s2) {
+  const c1=s1.length===7?s1.slice(2):s1, c2=s2.length===7?s2.slice(2):s2;
+  if (c1==='仄仄平平仄'&&c2==='平平仄仄平') return 'A';
+  if (c1==='平平平仄仄'&&c2==='仄仄仄平平') return 'B';
+  if (c1==='平平仄仄平'&&c2==='仄仄仄平平') return 'C';
+  if (c1==='仄仄仄平平'&&c2==='平平仄仄平') return 'D';
+  return 'X';
+}
+
+function matchPat(actual,pat) {
+  for (let i=0;i<pat.length;i++) {
+    if (pat[i]==='中') continue;
+    if (actual[i]&&actual[i]!==pat[i]&&actual[i]!=='?') return false;
+  }
+  return true;
+}
+
+function keyDevs(actual,std) {
+  const kp=std.length===5?[1,3,4]:[1,3,5,6];
+  return kp.filter(i=>std[i]&&std[i]!=='中'&&actual[i]&&actual[i]!==std[i]&&actual[i]!=='?').map(i=>i+1);
+}
+
+function matchTypeA(a1,a2) {
+  if (matchPat(a1,'中仄平平仄')&&matchPat(a2,'中平仄仄平')&&!isGuping(a2,'平平仄仄平')) return {type:'正格',subtypes:[]};
+  if (isGuping(a2,'平平仄仄平')) {const e={type:'❌孤平',detail:'对句孤平(仄平仄仄平)，大忌',lineInCouplet:1};return {type:e.type,detail:e.detail,errors:[e]};}
+  const subtypes=[];
+  const in1Ao=a2[0]==='仄', in3Jiu=a2[2]==='平'||a2[2]==='?';
+  const out3Ao=a1[2]==='仄', out4Ao=a1[3]==='仄';
+  if (in1Ao) {
+    if (in3Jiu) subtypes.push('句内自救');
+    else {const e={type:'❌孤平',detail:'对句首字变仄，第三字未补平，形成孤平',lineInCouplet:1};return {type:e.type,detail:e.detail,errors:[e]};}
+  }
+  if (out3Ao&&in3Jiu) subtypes.push('三救三');
+  if (out4Ao&&in3Jiu) subtypes.push('四拗三救');
+  if (out4Ao&&!in3Jiu) return {type:'出律',detail:'出句第四字拗，未得对句救',subtypes,
+    errorPos:[{lineInCouplet:0,charPos:3}]};
+  if (subtypes.length>0) {
+    const devs=keyDevs(a1,'仄仄平平仄').filter(p=>!(p===3&&out3Ao)&&!(p===4&&out4Ao))
+               .concat(keyDevs(a2,'平平仄仄平').filter(p=>!(p===1&&in1Ao)&&!(p===3&&in3Jiu)));
+    if (devs.length===0) return {type:'拗救合律',subtypes};
+  }
+  const d1A=keyDevs(a1,'仄仄平平仄'),d2A=keyDevs(a2,'平平仄仄平');
+  const devs=d1A.concat(d2A);
+  if (!devs.length) return {type:'正格',subtypes:[]};
+  return {type:'出律',detail:`第${devs.join('、')}字出律`,subtypes:[],
+    errorPos:[...d1A.map(p=>({lineInCouplet:0,charPos:p-1})),...d2A.map(p=>({lineInCouplet:1,charPos:p-1}))]};
+}
+
+function matchTypeB(a1,a2) {
+  if (isSanping(a2)) {const e={type:'❌三平调',detail:'对句末三字全平，大忌',lineInCouplet:1};return {type:e.type,detail:e.detail,errors:[e]};}
+  if (matchPat(a1,'中平平仄仄')&&matchPat(a2,'中仄仄平平')) return {type:'正格',subtypes:[]};
+  if ((a1[0]==='平'||a1[0]==='?')&&(a1[1]==='平'||a1[1]==='?')&&a1[2]==='仄'&&(a1[3]==='平'||a1[3]==='?')&&a1[4]==='仄'&&matchPat(a2,'中仄仄平平'))
+    return {type:'拗救合律',subtypes:['锦鲤翻波']};
+  if (a1[0]==='仄'&&a1[2]==='仄'&&a1[3]==='平'&&a1[4]==='仄')
+    return {type:'出律',detail:'锦鲤翻波句式首字必须为平',subtypes:[],
+      errorPos:[{lineInCouplet:0,charPos:0}]};
+  const d1B=keyDevs(a1,'平平平仄仄'),d2B=keyDevs(a2,'仄仄仄平平');
+  const devs=d1B.concat(d2B);
+  if (!devs.length) return {type:'正格',subtypes:[]};
+  return {type:'出律',detail:`第${devs.join('、')}字出律`,subtypes:[],
+    errorPos:[...d1B.map(p=>({lineInCouplet:0,charPos:p-1})),...d2B.map(p=>({lineInCouplet:1,charPos:p-1}))]};
+}
+
+function matchTypeC(a1,a2) {
+  const fatalC=[];
+  if (isGuping(a1,'平平仄仄平')) fatalC.push({type:'❌孤平',detail:'出句孤平(仄平仄仄平)，大忌',lineInCouplet:0});
+  if (isSanping(a2)) fatalC.push({type:'❌三平调',detail:'对句末三字全平，大忌',lineInCouplet:1});
+  if (fatalC.length>0) return {type:fatalC[0].type,detail:fatalC[0].detail,errors:fatalC};
+  if (matchPat(a1,'中平仄仄平')&&matchPat(a2,'中仄仄平平')) return {type:'正格',subtypes:[]};
+  if (a1[0]==='仄'&&a1[1]==='平'&&(a1[2]==='平'||a1[2]==='?')&&a1[3]==='仄'&&a1[4]==='平'&&matchPat(a2,'中仄仄平平'))
+    return {type:'拗救合律',subtypes:['句内自救']};
+  const d1C=keyDevs(a1,'平平仄仄平'),d2C=keyDevs(a2,'仄仄仄平平');
+  const devs=d1C.concat(d2C);
+  if (!devs.length) return {type:'正格',subtypes:[]};
+  return {type:'出律',detail:`第${devs.join('、')}字出律`,subtypes:[],
+    errorPos:[...d1C.map(p=>({lineInCouplet:0,charPos:p-1})),...d2C.map(p=>({lineInCouplet:1,charPos:p-1}))]};
+}
+
+function matchTypeD(a1,a2) {
+  const fatalD=[];
+  if (a1[2]==='平'&&a1[3]==='平'&&a1[4]==='平') fatalD.push({type:'❌三平调',detail:'出句末三字全平，大忌',lineInCouplet:0});
+  if (isGuping(a2,'平平仄仄平')) fatalD.push({type:'❌孤平',detail:'对句孤平，大忌',lineInCouplet:1});
+  if (fatalD.length>0) return {type:fatalD[0].type,detail:fatalD[0].detail,errors:fatalD};
+  if (matchPat(a1,'中仄仄平平')&&matchPat(a2,'中平仄仄平')) return {type:'正格',subtypes:[]};
+  if (a2[0]==='仄'&&a2[1]==='平'&&(a2[2]==='平'||a2[2]==='?')&&a2[3]==='仄'&&a2[4]==='平'&&matchPat(a1,'中仄仄平平'))
+    return {type:'拗救合律',subtypes:['句内自救']};
+  const d1D=keyDevs(a1,'仄仄仄平平'),d2D=keyDevs(a2,'平平仄仄平');
+  const devs=d1D.concat(d2D);
+  if (!devs.length) return {type:'正格',subtypes:[]};
+  return {type:'出律',detail:`第${devs.join('、')}字出律`,subtypes:[],
+    errorPos:[...d1D.map(p=>({lineInCouplet:0,charPos:p-1})),...d2D.map(p=>({lineInCouplet:1,charPos:p-1}))]};
+}
+
+function analyzeCouplet(a1,a2,std1,std2) {
+  const isQi=std1.length===7;
+  const c1=isQi?a1.slice(2):a1, c2=isQi?a2.slice(2):a2;
+  if (isQi) {
+    if (std1[1]!=='中'&&a1[1]&&a1[1]!==std1[1]&&a1[1]!=='?')
+      return {type:'出律',detail:'七言第二字（标志位）不能改变',subtypes:[],errorPos:[{lineInCouplet:0,charPos:1}]};
+    if (std2[1]!=='中'&&a2[1]&&a2[1]!==std2[1]&&a2[1]!=='?')
+      return {type:'出律',detail:'七言第二字（标志位）不能改变',subtypes:[],errorPos:[{lineInCouplet:1,charPos:1}]};
+    if (a2[0]==='仄'&&a2[1]==='仄'&&a2[2]==='仄'&&a2[3]==='平'&&a2[4]==='仄'&&a2[5]==='仄'&&a2[6]==='平')
+      return {type:'❌孤平',detail:'七言对句孤平(仄仄仄平仄仄平)，大忌'};
+  }
+  const t=getCoupletType(std1,std2);
+  let r;
+  if (t==='A') r=matchTypeA(c1,c2);
+  else if (t==='B') r=matchTypeB(c1,c2);
+  else if (t==='C') r=matchTypeC(c1,c2);
+  else if (t==='D') r=matchTypeD(c1,c2);
+  else {
+    const std1c=std1.length===7?std1.slice(2):std1,std2c=std2.length===7?std2.slice(2):std2;
+    const dU1=keyDevs(c1,std1c),dU2=keyDevs(c2,std2c);
+    const devs=dU1.concat(dU2);
+    r=!devs.length?{type:'正格',subtypes:[]}:{type:'出律',detail:`第${devs.join('、')}字出律`,subtypes:[],
+      errorPos:[...dU1.map(p=>({lineInCouplet:0,charPos:p-1})),...dU2.map(p=>({lineInCouplet:1,charPos:p-1}))]};
+  }
+  if (isQi&&r) {
+    if (r.detail) r.detail=r.detail.replace(/第(\d+)字/g,(_,n)=>`第${+n+2}字`);
+    if (r.subtypes) r.subtypes=r.subtypes.map(s=>s==='三救三'?'五救五':s==='四拗三救'?'六拗五救':s==='三字出律（未救）'?'五字出律（未救）':s);
+    if (r.errorPos) r.errorPos=r.errorPos.map(({lineInCouplet,charPos})=>({lineInCouplet,charPos:charPos+2}));
+    if (r.errors) r.errors=r.errors.map(e=>({...e,detail:e.detail?e.detail.replace(/第(\d+)字/g,(_,n)=>`第${+n+2}字`):e.detail}));
+  }
+  return r;
+}
+
+function matchBestPattern(toneValues,patterns,lineCount) {
+  let best={patternKey:null,score:-1};
+  const ft=toneValues[0]||[],lt=ft[ft.length-1];
+  for (const [key,lines] of Object.entries(patterns)) {
+    if (lt==='平'&&key.includes('不入韵')) continue;
+    if (lt==='仄'&&!key.includes('不入韵')) continue;
+    const used=lines.slice(0,lineCount); let m=0,tot=0;
+    for (let i=0;i<used.length;i++) {
+      const std=used[i],act=toneValues[i]||[];
+      for (let j=0;j<std.length;j++) {
+        if (std[j]==='中') continue;
+        const t=act[j];
+        if (t==='未知'||t==='多音') continue;
+        tot++; if (t===std[j]) m++;
+      }
+    }
+    const r=tot>0?m/tot:0;
+    if (r>best.score) best={patternKey:key,score:r};
+  }
+  return best;
+}
+
+function extendPatterns(base,lineCount) {
+  if (lineCount<=8) return base;
+  const result={};
+  for (const [key,lines] of Object.entries(base)) {
+    const ext=[...lines];
+    while (ext.length<lineCount) ext.push(...lines.slice(4,8));
+    result[key]=ext.slice(0,lineCount);
+  }
+  return result;
+}
+
+function analyzeSingleLine(toneStr) {
+  const isQi=toneStr.length===7;
+  const core=isQi?toneStr.slice(2):toneStr;
+  const isPingEnd=core[core.length-1]==='平';
+  if (isPingEnd) {
+    if (isGuping(core,'平平仄仄平')) return {type:'❌孤平',detail:'平收句形成孤平（仄平仄仄平），近体诗大忌',isPingEnd};
+    if (isSanping(core)) return {type:'❌三平调',detail:'句末三字全为平声，三平调大忌',isPingEnd};
+  }
+  const cands=isPingEnd?['平平仄仄平','仄仄仄平平']:['仄仄平平仄','平平平仄仄'];
+  let bestStd=cands[0], bestDevs=keyDevs(core,cands[0]);
+  for (const std of cands.slice(1)) {
+    const devs=keyDevs(core,std);
+    if (devs.length<bestDevs.length) {bestStd=std;bestDevs=devs;}
+  }
+  const dispDevs=isQi?bestDevs.map(p=>p+2):bestDevs;
+  const prefix=isQi?(bestStd[0]==='平'?'仄仄':'平平'):'';
+  const dispStd=prefix+bestStd;
+  if (!bestDevs.length) return {type:'正格',std:dispStd,isPingEnd};
+  return {type:'出律',detail:`第${dispDevs.join('、')}字出律`,std:dispStd,isPingEnd,
+    errorPos:bestDevs.map(p=>({lineInCouplet:0,charPos:isQi?p+1:p-1}))};
+}
+
+function findBestCoupletStds(tc1,tc2) {
+  const isQi=tc1.length===7;
+  const c1=isQi?tc1.slice(2):tc1, c2=isQi?tc2.slice(2):tc2;
+  const pairs=[['仄仄平平仄','平平仄仄平'],['平平平仄仄','仄仄仄平平'],['平平仄仄平','仄仄仄平平'],['仄仄仄平平','平平仄仄平']];
+  let best=pairs[0], bestScore=Infinity;
+  for (const [s1,s2] of pairs) {
+    const sc=keyDevs(c1,s1).length+keyDevs(c2,s2).length;
+    if (sc<bestScore) {bestScore=sc;best=[s1,s2];}
+  }
+  if (isQi) return [(best[0][0]==='平'?'仄仄':'平平')+best[0],(best[1][0]==='平'?'仄仄':'平平')+best[1]];
+  return best;
+}
+
+function tryAltToneAnalysis(tc1,tc2,std1,std2,row1,row2,chars1,chars2) {
+  let alt1=tc1, alt2=tc2;
+  const notes=[];
+  for (let i=0;i<tc1.length;i++) {
+    if (tc1[i]!=='?') continue;
+    const exp=std1[i];
+    if (!exp||exp==='中') continue;
+    alt1=alt1.substring(0,i)+exp+alt1.substring(i+1);
+    notes.push({char:chars1[i],lineInCouplet:0,pos:i,assumedTone:exp,toneSubtype:row1[i]?row1[i].subtype:'未收录'});
+  }
+  for (let i=0;i<tc2.length;i++) {
+    if (tc2[i]!=='?') continue;
+    const exp=std2[i];
+    if (!exp||exp==='中') continue;
+    alt2=alt2.substring(0,i)+exp+alt2.substring(i+1);
+    notes.push({char:chars2[i],lineInCouplet:1,pos:i,assumedTone:exp,toneSubtype:row2[i]?row2[i].subtype:'未收录'});
+  }
+  if (!notes.length) return null;
+  const altResult=analyzeCouplet(alt1,alt2,std1,std2);
+  if (altResult.type==='出律') return null;
+  return {result:altResult,notes};
+}
+
+function checkLushi(text) {
+  const parsed=parsePoem(text);
+  if (parsed.error) return {error:parsed.error};
+  const pt=detectPoetryType(parsed);
+  if (!pt.valid) return {error:pt.reason};
+  const {lines,charPerLine,lineCount}=parsed;
+  const toneMatrix=lines.map(line=>[...line].map(ch=>getCharTone(ch)));
+  const toneValues=toneMatrix.map(row=>row.map(t=>t.tone));
+  const toneStrings=toneValues.map(row=>row.join(''));
+  const toneCodes=toneValues.map(row=>row.map(t=>(t==='平'||t==='仄')?t:'?').join(''));
+
+  if (pt.type==='单句') {
+    let result=analyzeSingleLine(toneCodes[0]);
+    let duoyinNotes=null;
+    if (result.type==='出律'&&result.std) {
+      const std=result.std;
+      let altTc=toneCodes[0];
+      const notes=[];
+      for (let i=0;i<altTc.length;i++) {
+        if (altTc[i]!=='?') continue;
+        const exp=std[i];
+        if (!exp||exp==='中') continue;
+        altTc=altTc.substring(0,i)+exp+altTc.substring(i+1);
+        notes.push({char:[...lines[0]][i],pos:i,assumedTone:exp,toneSubtype:toneMatrix[0][i]?toneMatrix[0][i].subtype:'未收录'});
+      }
+      if (notes.length) {
+        const altResult=analyzeSingleLine(altTc);
+        if (altResult.type!=='出律') {result=altResult;duoyinNotes=notes;}
+      }
+    }
+    const errorChars=(result.errorPos||[]).map(({charPos})=>({lineIdx:0,charIdx:charPos}));
+    return {poetryType:pt,toneMatrix,toneStrings,lines,
+      stdLines:result.std?[result.std]:[],
+      coupletResults:[{lineIdx:0,...result,errorChars,duoyinNotes}],singleLine:{...result,duoyinNotes}};
+  }
+
+  if (pt.type==='单联') {
+    const [std1,std2]=findBestCoupletStds(toneCodes[0],toneCodes[1]);
+    let result=analyzeCouplet(toneCodes[0],toneCodes[1],std1,std2);
+    let duoyinNotes=null;
+    if (result.type==='出律') {
+      const alt=tryAltToneAnalysis(toneCodes[0],toneCodes[1],std1,std2,toneMatrix[0],toneMatrix[1],[...lines[0]],[...lines[1]]);
+      if (alt) {result=alt.result;duoyinNotes=alt.notes;}
+    }
+    const errorChars=(result.errorPos||[]).map(({lineInCouplet,charPos})=>({lineIdx:lineInCouplet,charIdx:charPos}));
+    return {poetryType:pt,toneMatrix,toneStrings,lines,
+      stdLines:[std1,std2],
+      coupletResults:[{lineIdx:0,...result,errorChars,duoyinNotes}]};
+  }
+
+  const patterns=extendPatterns(pt.style==='五言'?PATTERNS_WU:PATTERNS_QI,lineCount);
+  const {patternKey}=matchBestPattern(toneValues,patterns,lineCount);
+  const stdLines=patterns[patternKey].slice(0,lineCount);
+  const coupletResults=[];
+  for (let i=0;i<lineCount;i+=2) {
+    let res=analyzeCouplet(toneCodes[i],toneCodes[i+1]||'',stdLines[i],stdLines[i+1]||stdLines[i]);
+    let duoyinNotes=null;
+    if (res.type==='出律') {
+      const alt=tryAltToneAnalysis(toneCodes[i],toneCodes[i+1]||'',stdLines[i],stdLines[i+1]||stdLines[i],
+        toneMatrix[i],toneMatrix[i+1]||[],[...lines[i]],[...(lines[i+1]||'')]);
+      if (alt) {res=alt.result;duoyinNotes=alt.notes;}
+    }
+    const errorChars=(res.errorPos||[]).map(({lineInCouplet,charPos})=>({lineIdx:i+lineInCouplet,charIdx:charPos}));
+    coupletResults.push({lineIdx:i,...res,errorChars,duoyinNotes});
+  }
+  return {poetryType:pt,toneMatrix,toneStrings,patternKey,stdLines,coupletResults,lines,parsed};
+}
+
+// ============================================================
+// 押韵检查
+// ============================================================
+const ADJACENT_YUNS = {
+  '上平一东':['上平二冬'],'上平二冬':['上平一东','上平三江'],'上平三江':['下平七阳'],
+  '上平四支':['上平五微','上平八齐'],'上平五微':['上平四支','上平八齐'],'上平八齐':['上平四支','上平五微'],
+  '上平六鱼':['上平七虞'],'上平七虞':['上平六鱼'],
+  '上平九佳':['上平十灰'],'上平十灰':['上平九佳'],
+  '上平十一真':['上平十二文','上平十三元'],'上平十二文':['上平十一真','上平十三元'],
+  '上平十三元':['上平十一真','上平十二文','上平十四寒'],
+  '上平十四寒':['上平十三元','上平十五删'],'上平十五删':['上平十四寒','下平一先'],
+  '下平一先':['上平十五删'],'下平二萧':['下平三肴'],'下平三肴':['下平二萧','下平四豪'],'下平四豪':['下平三肴'],
+  '下平七阳':['上平三江','下平八庚'],'下平八庚':['下平七阳','下平九青'],
+  '下平九青':['下平八庚','下平十蒸'],'下平十蒸':['下平九青'],
+};
+
+function getPingYunIds(char) {
+  return (CHAR_TO_YUN[char]||[]).filter(id=>{
+    const c=PINGSHUI_YUN[id].cat; return c==='上平'||c==='下平';
+  });
+}
+
+function checkRhyme(lines) {
+  const rhymeLines=[];
+  for (let i=1;i<lines.length;i+=2) {
+    const ch=[...lines[i]].pop();
+    const isUnknown=!(CHAR_TO_YUN[ch]||[]).length;
+    rhymeLines.push({lineIdx:i+1,char:ch,pingYunIds:getPingYunIds(ch),isUnknown});
+  }
+  const firstCh=[...lines[0]].pop();
+  const firstPings=getPingYunIds(firstCh);
+  const zeLines=rhymeLines.filter(r=>!r.isUnknown&&!r.pingYunIds.length);
+  const unknownLines=rhymeLines.filter(r=>r.isUnknown);
+  const knownLines=rhymeLines.filter(r=>!r.isUnknown&&r.pingYunIds.length>0);
+  if (zeLines.length>0) {
+    return {result:'出韵',detail:`"${zeLines.map(r=>r.char).join('、')}"非平声字，律诗需押平声韵`,rhymeLines,unknownLines,firstLineIn:false,firstLastChar:firstCh};
+  }
+  if (knownLines.length===0) {
+    return {result:'无法判断',detail:'韵脚字均不在平水韵库中，声调待确认',rhymeLines,unknownLines,firstLineIn:false,firstLastChar:firstCh};
+  }
+  let common=knownLines[0].pingYunIds.slice();
+  for (let i=1;i<knownLines.length;i++) common=common.filter(id=>knownLines[i].pingYunIds.includes(id));
+  const firstLineIn=firstPings.some(id=>common.includes(id));
+  if (common.length>0) {
+    return {result:'合韵',yunId:common[0],yunName:PINGSHUI_YUN[common[0]]?.name||'',rhymeLines,unknownLines,firstLineIn,firstLastChar:firstCh};
+  }
+  // 邻韵（仅基于已知字）
+  const baseIds=knownLines[0].pingYunIds;
+  for (const baseId of baseIds) {
+    const adj=ADJACENT_YUNS[baseId]||[];
+    if (knownLines.every(r=>r.pingYunIds.includes(baseId)||r.pingYunIds.some(id=>adj.includes(id)))) {
+      const yn=PINGSHUI_YUN[baseId]?.name||baseId;
+      return {result:'通押（邻韵可接受）',detail:`押${yn}韵，部分韵脚属邻韵通押`,rhymeLines,unknownLines,firstLineIn:false,firstLastChar:firstCh};
+    }
+  }
+  return {result:'出韵',detail:knownLines.map(r=>`"${r.char}"(${r.pingYunIds.map(id=>PINGSHUI_YUN[id]?.name).join('/')})`).join('、'),rhymeLines,unknownLines,firstLineIn:false,firstLastChar:firstCh};
+}
+
+// ============================================================
+// UI
+// ============================================================
+function showTab(name) {
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>{
+    b.classList.toggle('active', ['check','query','browse'][i]===name);
+  });
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+}
+
+function toneDotClass(tone, subtype) {
+  if (tone==='未知') return 'tone-dot tone-unk';
+  if (tone==='多音') return 'tone-dot tone-duo';
+  if (subtype==='入声') return 'tone-dot tone-rushe';
+  if (tone==='平') return 'tone-dot tone-ping';
+  return 'tone-dot tone-ze';
+}
+
+function coupletTagClass(type) {
+  if (type==='正格') return 'couplet-block tag-zhengjie';
+  if (type==='拗救合律') return 'couplet-block tag-aojiu';
+  if (type.startsWith('❌')) return 'couplet-block tag-danger';
+  return 'couplet-block tag-chulv';
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function renderToneGrid(result) {
+  const {lines, toneMatrix, stdLines, coupletResults} = result;
+  // 构建出律字坐标集合
+  const errorSet=new Set();
+  for (const cr of (coupletResults||[])) {
+    for (const {lineIdx,charIdx} of (cr.errorChars||[])) errorSet.add(`${lineIdx},${charIdx}`);
+  }
+  let html = '<div class="poem-grid">';
+  for (let i=0;i<lines.length;i++) {
+    const chars=[...lines[i]];
+    html+='<div class="poem-line">';
+    for (let j=0;j<chars.length;j++) {
+      const t=toneMatrix[i][j];
+      const isErr=errorSet.has(`${i},${j}`);
+      html+=`<div class="char-cell${isErr?' char-error':''}"><span class="char-hanzi">${escHtml(chars[j])}</span><div class="${toneDotClass(t.tone,t.subtype)}" title="${t.tone}${t.subtype!=='普通'?'('+t.subtype+')':''}"></div></div>`;
+    }
+    html+='</div>';
+    // standard pattern row
+    if (stdLines && stdLines[i]) {
+      html+='<div class="std-row">';
+      for (const c of stdLines[i]) html+=`<span class="std-char">${c}</span>`;
+      html+='</div>';
+    }
+  }
+  html+='</div>';
+  return html;
+}
+
+const hlLine=(lines,li,errChars)=>{
+  const errSet=new Set((errChars||[]).filter(e=>e.lineIdx===li).map(e=>e.charIdx));
+  return [...(lines[li]||'')].map((c,i)=>errSet.has(i)?`<span class="char-error-inline">${escHtml(c)}</span>`:escHtml(c)).join('');
+};
+
+function renderCoupletBlock(cr,lines,li) {
+  let h=`<div class="${coupletTagClass(cr.type)}">`;
+  if (cr.errors&&cr.errors.length>1) {
+    h+=`<div class="tag-label">第${li+1}—${li+2}句: ${escHtml(cr.errors.map(e=>e.type).join(' + '))}</div>`;
+    for (const err of cr.errors) {
+      h+=`<div class="tag-detail">${escHtml(err.lineInCouplet===0?'出句':'对句')}：${escHtml(err.detail||'')}</div>`;
+    }
+  } else {
+    h+=`<div class="tag-label">第${li+1}—${li+2}句: ${escHtml(cr.type)}`;
+    if (cr.subtypes&&cr.subtypes.length) h+=`　<span style="font-weight:normal;font-size:.85em">[${escHtml(cr.subtypes.join(' + '))}]</span>`;
+    h+='</div>';
+    if (cr.detail) h+=`<div class="tag-detail">${escHtml(cr.detail)}</div>`;
+  }
+  h+=`<div class="couplet-lines">${hlLine(lines,li,cr.errorChars)} / ${hlLine(lines,li+1,cr.errorChars)}</div>`;
+  if (cr.duoyinNotes&&cr.duoyinNotes.length) {
+    const parts=cr.duoyinNotes.map(n=>{
+      const ll=n.lineInCouplet===0?'出句':'对句';
+      const tl=n.toneSubtype==='未收录'?'平水韵未收录':'多音字';
+      return `"${escHtml(n.char)}"(${ll}第${n.pos+1}字)按${escHtml(n.assumedTone)}声读（${tl}）`;
+    });
+    h+=`<div class="duoyin-note">💡 注：${parts.join('；')}</div>`;
+  }
+  return h+'</div>';
+}
+
+function renderSingleLineResult(sl,lines) {
+  const lineType=sl.isPingEnd?'对句（平收）':'出句（仄收）';
+  let h=`<div class="result-box"><div class="result-title">格律分析（单句）</div>`;
+  h+=`<div class="${coupletTagClass(sl.type)}">`;
+  h+=`<div class="tag-label">${escHtml(lineType)}：${escHtml(sl.type)}</div>`;
+  if (sl.type==='正格') {
+    h+=`<div class="tag-detail">与标准格式"${escHtml(sl.std)}"吻合</div>`;
+  } else if (sl.type==='出律') {
+    if (sl.detail) h+=`<div class="tag-detail">${escHtml(sl.detail)}</div>`;
+    h+=`<div class="tag-detail">最近标准：${escHtml(sl.std)}</div>`;
+  } else {
+    if (sl.detail) h+=`<div class="tag-detail">${escHtml(sl.detail)}</div>`;
+  }
+  const errSet=new Set((sl.errorPos||[]).map(ep=>ep.charPos));
+  h+=`<div class="couplet-lines">${[...(lines[0]||'')].map((c,i)=>errSet.has(i)?`<span class="char-error-inline">${escHtml(c)}</span>`:escHtml(c)).join('')}</div>`;
+  if (sl.duoyinNotes&&sl.duoyinNotes.length) {
+    const parts=sl.duoyinNotes.map(n=>{
+      const tl=n.toneSubtype==='未收录'?'平水韵未收录':'多音字';
+      return `"${escHtml(n.char)}"(第${n.pos+1}字)按${escHtml(n.assumedTone)}声读（${tl}）`;
+    });
+    h+=`<div class="duoyin-note">💡 注：${parts.join('；')}</div>`;
+  }
+  return h+'</div></div>';
+}
+
+function doCheck() {
+  const text=document.getElementById('poem-input').value.trim();
+  if (!text) { document.getElementById('check-result').innerHTML='<div class="error-msg">请输入诗稿</div>'; return; }
+  const r=checkLushi(text);
+  let html='';
+  if (r.error) { html=`<div class="error-msg">${escHtml(r.error)}</div>`; document.getElementById('check-result').innerHTML=html; return; }
+
+  const pt=r.poetryType;
+  const legend=`<div class="legend">
+    <span class="legend-item"><span class="legend-dot tone-ping"></span>平声</span>
+    <span class="legend-item"><span class="legend-dot tone-ze"></span>仄声</span>
+    <span class="legend-item"><span class="legend-dot tone-rushe"></span>入声（仄）</span>
+    <span class="legend-item"><span class="legend-dot tone-duo"></span>多音字</span>
+    <span class="legend-item"><span class="legend-dot tone-unk"></span>未收录</span>
+  </div>`;
+
+  // 单句模式
+  if (pt.type==='单句') {
+    html+=`<div class="result-box"><div class="result-title">平仄标注（${pt.style}单句）</div>`;
+    html+=renderToneGrid(r)+legend+'</div>';
+    html+=renderSingleLineResult(r.singleLine,r.lines);
+    const slLastCh=[...r.lines[0]].pop();
+    const slPings=getPingYunIds(slLastCh);
+    if (slPings.length>0) {
+      const yn=PINGSHUI_YUN[slPings[0]]?.name||slPings[0];
+      html+=`<div class="result-box"><div style="font-size:.85em;color:#888">韵字："${escHtml(slLastCh)}" 属 ${escHtml(yn)}韵</div></div>`;
+    }
+    document.getElementById('check-result').innerHTML=html; return;
+  }
+
+  // 单联模式
+  if (pt.type==='单联') {
+    html+=`<div class="result-box"><div class="result-title">平仄标注（${pt.style}单联）</div>`;
+    html+=renderToneGrid(r)+legend+'</div>';
+    html+=`<div class="result-box"><div class="result-title">格律分析（单联）</div>`;
+    html+=renderCoupletBlock(r.coupletResults[0],r.lines,0);
+    html+='</div>';
+    const yunParts=[];
+    for (let i=0;i<r.lines.length;i++) {
+      const lch=[...r.lines[i]].pop();
+      const pings=getPingYunIds(lch);
+      if (pings.length>0) {
+        const yn=PINGSHUI_YUN[pings[0]]?.name||pings[0];
+        yunParts.push(`第${i+1}句"${escHtml(lch)}"（${escHtml(yn)}韵）`);
+      }
+    }
+    if (yunParts.length>0) {
+      html+=`<div class="result-box"><div style="font-size:.85em;color:#888">韵字：${yunParts.join('　')}</div></div>`;
+    }
+    document.getElementById('check-result').innerHTML=html; return;
+  }
+
+  // 绝句 / 律诗 / 排律
+  html+=`<div class="result-box"><div class="result-title">诗体识别</div>`;
+  html+=`<div class="info-row">
+    <span class="info-item">${pt.style}${pt.type}</span>
+    <span class="info-item">${r.patternKey}</span>
+    <span class="info-item">共${pt.lineCount}行</span>
+  </div></div>`;
+
+  html+=`<div class="result-box"><div class="result-title">平仄标注</div>`;
+  html+=renderToneGrid(r)+legend+'</div>';
+
+  html+=`<div class="result-box"><div class="result-title">格律分析（以联为单元）</div>`;
+  for (const cr of r.coupletResults) {
+    html+=renderCoupletBlock(cr,r.lines,cr.lineIdx);
+  }
+  html+='</div>';
+
+  // 押韵
+  const rhymeR=checkRhyme(r.lines);
+  let rhymeCls='rhyme-bad';
+  if (rhymeR.result==='合韵') rhymeCls='rhyme-ok';
+  else if (rhymeR.result.startsWith('通押')) rhymeCls='rhyme-adj';
+  else if (rhymeR.result==='无法判断') rhymeCls='rhyme-adj';
+  html+=`<div class="result-box"><div class="result-title">押韵检查</div>`;
+  html+=`<div class="rhyme-result ${rhymeCls}">`;
+  html+=`<strong>${escHtml(rhymeR.result)}</strong>`;
+  if (rhymeR.yunName) html+=`　${escHtml(rhymeR.yunName)}韵`;
+  if (rhymeR.yunId) html+=`（${escHtml(rhymeR.yunId)}）`;
+  if (rhymeR.firstLineIn) html+='　首句入韵';
+  if (rhymeR.detail) html+=`<br><span style="font-size:.82em">${escHtml(rhymeR.detail)}</span>`;
+  html+='</div>';
+  const rcs=rhymeR.rhymeLines.filter(rl=>!rl.isUnknown).map(rl=>`第${rl.lineIdx}句末字"${rl.char}"（${rl.pingYunIds.map(id=>PINGSHUI_YUN[id]?.name||id).join('/')||'非平声'}）`);
+  if (rcs.length) html+=`<div style="font-size:.8em;color:#888;margin-top:6px">${escHtml(rcs.join('　'))}</div>`;
+  if (rhymeR.unknownLines&&rhymeR.unknownLines.length) {
+    const unk=rhymeR.unknownLines.map(rl=>`第${rl.lineIdx}句末字"${escHtml(rl.char)}"（平水韵未收录，声调待确认）`);
+    html+=`<div style="font-size:.8em;color:#5c6bc0;margin-top:4px;border-left:3px solid #7986cb;padding-left:6px">💡 ${unk.join('；')}</div>`;
+  }
+  html+='</div>';
+
+  document.getElementById('check-result').innerHTML=html;
+}
+
+function doQuery(char) {
+  const ch = char || document.getElementById('query-input').value.trim();
+  if (!ch) return;
+  document.getElementById('query-input').value=ch;
+  const info=getCharYunInfo(ch);
+  const tone=getCharTone(ch);
+  let html='';
+  if (!info.length) {
+    html=`<div class="yun-card"><p style="color:#999">"${escHtml(ch)}"在平水韵数据库中未收录</p></div>`;
+  } else {
+    html=`<div class="yun-card"><h3>"${escHtml(ch)}" 的韵部信息</h3>`;
+    const badgeCls=tone.tone==='平'?'badge-ping':'badge-ze';
+    const toneLabel=tone.tone+(tone.subtype!=='普通'?'('+tone.subtype+')':'');
+    html+=`<p style="margin-bottom:10px">声调：<strong>${toneLabel}</strong><span class="badge ${badgeCls}">${tone.tone}</span></p>`;
+    for (const {yunId,name,cat} of info) {
+      const yun=PINGSHUI_YUN[yunId];
+      const chars=[...yun.chars].filter(c=>c.trim());
+      html+=`<div class="section-sep"></div>`;
+      html+=`<p><strong>${escHtml(cat)} · ${escHtml(name)}</strong>（${escHtml(yunId)}）</p>`;
+      html+=`<div class="yun-chars">`;
+      for (const c of chars) {
+        html+=`<button class="yun-char-btn" onclick="doQuery('${escHtml(c)}')">${escHtml(c)}</button>`;
+      }
+      html+=`</div>`;
+    }
+    html+='</div>';
+  }
+  document.getElementById('query-result').innerHTML=html;
+}
+
+document.getElementById('query-input').addEventListener('keydown',e=>{ if(e.key==='Enter') doQuery(); });
+
+// ============================================================
+// 韵书浏览
+// ============================================================
+function buildBrowse() {
+  const cats=['上平','下平','上声','去声','入声'];
+  const catNames={'上平':'上平声（15韵）','下平':'下平声（15韵）','上声':'上声（29韵）','去声':'去声（30韵）','入声':'入声（17韵）'};
+  let html='';
+  for (const cat of cats) {
+    const entries=Object.entries(PINGSHUI_YUN).filter(([,e])=>e.cat===cat);
+    html+=`<div class="cat-section">`;
+    html+=`<div class="cat-title" onclick="toggleCat(this)"><span>${escHtml(catNames[cat])}</span><span>▶</span></div>`;
+    html+=`<div class="cat-body">`;
+    for (const [yunId,entry] of entries) {
+      const chars=[...entry.chars].filter(c=>c.trim());
+      const sample=chars.slice(0,8).join(' ')+(chars.length>8?'…':'');
+      html+=`<div class="yun-item">`;
+      html+=`<div class="yun-name" onclick="toggleYunSample(this,'${escHtml(yunId)}')">${escHtml(entry.cat)} ${escHtml(entry.name)} ▸ ${escHtml(sample)}</div>`;
+      html+=`<div class="yun-sample" id="ysample-${escHtml(yunId)}">`;
+      html+=`<div class="yun-chars">`;
+      for (const c of chars) html+=`<button class="yun-char-btn" onclick="showTab('query');doQuery('${escHtml(c)}')">${escHtml(c)}</button>`;
+      html+=`</div></div>`;
+      html+='</div>';
+    }
+    html+='</div></div>';
+  }
+  document.getElementById('browse-content').innerHTML=html;
+}
+
+function toggleCat(el) {
+  const body=el.nextElementSibling;
+  const open=body.classList.toggle('open');
+  el.querySelector('span:last-child').textContent=open?'▼':'▶';
+}
+
+function toggleYunSample(el,yunId) {
+  const s=document.getElementById('ysample-'+yunId);
+  if (s) s.classList.toggle('open');
+}
+
+// Init
+buildCharMap();
+buildBrowse();
+</script>
+<footer style="margin-top:24px;padding:10px 0;text-align:center;font-size:0.78em;color:#bba88a;border-top:1px solid #ddd0b0">
+  啦导审诗 v1.0 &nbsp;·&nbsp; Designed by unixhunter &nbsp;·&nbsp; 访问 <span id="vercount_value_page_pv">…</span> 次
+</footer>
+</body>
+</html>
