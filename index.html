@@ -54,6 +54,7 @@ textarea:focus{border-color:#8b4513;box-shadow:0 0 0 2px rgba(139,69,19,.15)}
 .char-error .tone-dot{outline:2px solid #e53e3e;border-radius:50%}
 .char-error-inline{color:#e53e3e;font-weight:bold}
 .duoyin-note{font-size:.85em;color:#5c6bc0;padding:4px 8px;border-left:3px solid #7986cb;margin-top:4px}
+.taboo-warn{font-size:.85em;color:#e65100;background:#fff3e0;padding:4px 8px;border-left:3px solid #fb8c00;margin-top:4px;border-radius:0 4px 4px 0}
 
 /* Rhyme result */
 .rhyme-result{margin-top:8px;font-size:0.9em;padding:8px 10px;border-radius:5px}
@@ -360,6 +361,38 @@ function isGuping(s,std) {
   return false;
 }
 
+// 多音字「疑似大忌」检测（三平调/孤平）；入参为 toneMatrix 一行 + 字符数组。
+// 仅当某多音字读音会构成大忌、且该行含多音字（非确定型，确定型由 isSanping/isGuping 硬判）时提示。
+function detectDuoyinTaboo(row,chars) {
+  if (!row||row.length<3) return [];
+  const canPing=t=>!!t&&(t.tone==='平'||t.tone==='多音');
+  const canZe=t=>!!t&&(t.tone==='仄'||t.tone==='多音');
+  const isDuo=t=>!!t&&t.tone==='多音';
+  const n=row.length, warnings=[];
+  const last3=row.slice(n-3);
+  if (last3.every(canPing)&&last3.some(isDuo)) {
+    const duo=[];
+    for (let k=0;k<3;k++) if (isDuo(last3[k])) duo.push({char:chars[n-3+k],pos:n-3+k});
+    const tail=chars.slice(n-3).join(''), names=duo.map(d=>`"${d.char}"`).join('、');
+    warnings.push({type:'三平调',chars:duo,text:`疑似三平调：末三字"${tail}"中多音字${names}读平则成三平调（平平平）`});
+  }
+  const gpPat=n===5?'仄平仄仄平':(n===7?'仄仄仄平仄仄平':null);
+  if (gpPat) {
+    let fits=true,hasDuo=false;
+    for (let i=0;i<n;i++) {
+      if (gpPat[i]==='平'?!canPing(row[i]):!canZe(row[i])) {fits=false;break;}
+      if (isDuo(row[i])) hasDuo=true;
+    }
+    if (fits&&hasDuo) {
+      const duo=[];
+      for (let i=0;i<n;i++) if (isDuo(row[i])) duo.push({char:chars[i],pos:i});
+      const names=duo.map(d=>`"${d.char}"`).join('、');
+      warnings.push({type:'孤平',chars:duo,text:`疑似孤平：多音字${names}的读法可使全句落入孤平定式（${gpPat}）`});
+    }
+  }
+  return warnings;
+}
+
 function getCoupletType(s1,s2) {
   const c1=s1.length===7?s1.slice(2):s1, c2=s2.length===7?s2.slice(2):s2;
   if (c1==='仄仄平平仄'&&c2==='平平仄仄平') return 'A';
@@ -587,6 +620,7 @@ function checkLushi(text) {
   const toneValues=toneMatrix.map(row=>row.map(t=>t.tone));
   const toneStrings=toneValues.map(row=>row.join(''));
   const toneCodes=toneValues.map(row=>row.map(t=>(t==='平'||t==='仄')?t:'?').join(''));
+  const lineWarnings=toneMatrix.map((row,i)=>detectDuoyinTaboo(row,[...lines[i]]));
 
   if (pt.type==='单句') {
     let result=analyzeSingleLine(toneCodes[0]);
@@ -608,9 +642,10 @@ function checkLushi(text) {
       }
     }
     const errorChars=(result.errorPos||[]).map(({charPos})=>({lineIdx:0,charIdx:charPos}));
+    const warnings=(lineWarnings[0]||[]).map(w=>({...w,lineInCouplet:0}));
     return {poetryType:pt,toneMatrix,toneStrings,lines,
       stdLines:result.std?[result.std]:[],
-      coupletResults:[{lineIdx:0,...result,errorChars,duoyinNotes}],singleLine:{...result,duoyinNotes}};
+      coupletResults:[{lineIdx:0,...result,errorChars,duoyinNotes,warnings}],singleLine:{...result,duoyinNotes,warnings}};
   }
 
   if (pt.type==='单联') {
@@ -622,9 +657,11 @@ function checkLushi(text) {
       if (alt) {result=alt.result;duoyinNotes=alt.notes;}
     }
     const errorChars=(result.errorPos||[]).map(({lineInCouplet,charPos})=>({lineIdx:lineInCouplet,charIdx:charPos}));
+    const warnings=[];
+    [0,1].forEach((li,k)=>{for (const w of (lineWarnings[li]||[])) warnings.push({...w,lineInCouplet:k});});
     return {poetryType:pt,toneMatrix,toneStrings,lines,
       stdLines:[std1,std2],
-      coupletResults:[{lineIdx:0,...result,errorChars,duoyinNotes}]};
+      coupletResults:[{lineIdx:0,...result,errorChars,duoyinNotes,warnings}]};
   }
 
   const patterns=extendPatterns(pt.style==='五言'?PATTERNS_WU:PATTERNS_QI,lineCount);
@@ -640,7 +677,9 @@ function checkLushi(text) {
       if (alt) {res=alt.result;duoyinNotes=alt.notes;}
     }
     const errorChars=(res.errorPos||[]).map(({lineInCouplet,charPos})=>({lineIdx:i+lineInCouplet,charIdx:charPos}));
-    coupletResults.push({lineIdx:i,...res,errorChars,duoyinNotes});
+    const warnings=[];
+    [i,i+1].forEach((li,k)=>{for (const w of (lineWarnings[li]||[])) warnings.push({...w,lineInCouplet:k});});
+    coupletResults.push({lineIdx:i,...res,errorChars,duoyinNotes,warnings});
   }
   return {poetryType:pt,toneMatrix,toneStrings,patternKey,stdLines,coupletResults,lines,parsed};
 }
@@ -788,6 +827,12 @@ function renderCoupletBlock(cr,lines,li) {
     });
     h+=`<div class="duoyin-note">💡 注：${parts.join('；')}</div>`;
   }
+  if (cr.warnings&&cr.warnings.length) {
+    for (const w of cr.warnings) {
+      const ll=w.lineInCouplet===0?'出句':'对句';
+      h+=`<div class="taboo-warn">⚠️ ${ll}${escHtml(w.text)}</div>`;
+    }
+  }
   return h+'</div>';
 }
 
@@ -812,6 +857,9 @@ function renderSingleLineResult(sl,lines) {
       return `"${escHtml(n.char)}"(第${n.pos+1}字)按${escHtml(n.assumedTone)}声读（${tl}）`;
     });
     h+=`<div class="duoyin-note">💡 注：${parts.join('；')}</div>`;
+  }
+  if (sl.warnings&&sl.warnings.length) {
+    for (const w of sl.warnings) h+=`<div class="taboo-warn">⚠️ ${escHtml(w.text)}</div>`;
   }
   return h+'</div></div>';
 }
